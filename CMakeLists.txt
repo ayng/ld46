@@ -5,6 +5,8 @@ add_executable(ld46 main.c)
 
 set_property(TARGET ld46 PROPERTY C_STANDARD 99)
 
+file(COPY assets DESTINATION ${CMAKE_BINARY_DIR})
+
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
 find_package(SDL2 REQUIRED)
