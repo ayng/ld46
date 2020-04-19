@@ -14,21 +14,24 @@ const uint32_t screen_height = 720;
 const uint32_t step_size = 8; // 8 milliseconds roughly equates to 120Hz
 const float steps_per_second = (float)(step_size)*0.001f;
 
-const float ball_radius = 16.0f;          // pixels
-const float player_width = 32.0f;         // pixels
-const float player_height = 32.0f;        // pixels
-const float player_max_velocity = 300.0f; // pixels/s
+const float ball_radius = 16.0f;   // pixels
+const float player_width = 32.0f;  // pixels
+const float player_height = 32.0f; // pixels
 
 const float gravity = 800.0f; // pixels/s/s
 
-const float ball_bounce_vx = 200.0f; // pixels/s
-const float ball_bounce_vy = 600.0f; // pixels/s
-const float jump_velocity = 500.0f;  // pixels/s
+const float ball_bounce_vx = 200.0f;       // pixels/s
+const float ball_bounce_vy = 600.0f;       // pixels/s
+const float player_max_velocity = 300.0f;  // pixels/s
+const float player_jump_velocity = 400.0f; // pixels/s
+
+const uint32_t coyote_time = 8; // steps
 
 const float time_to_max_velocity = 18.0f;  // steps
 const float time_to_zero_velocity = 18.0f; // steps
 const float time_to_pivot = 12.0f;         // steps
 const float time_to_squash = 12.0f;        // steps
+const float time_to_max_jump = 32.0f;      // steps
 
 const uint32_t max_num_platforms = 32;
 
@@ -43,6 +46,7 @@ typedef struct {
 bool check_collision_circle_rect(float, float, float, float, float, float, float);
 bool check_collision_rect_rect(float, float, float, float, float, float, float, float);
 
+float hold_jump(float);
 float accelerate(float);
 float decelerate(float);
 float pivot(float);
@@ -70,44 +74,57 @@ int main() {
     loading_surf = IMG_Load("assets/ball.png");
     SDL_Texture *ball_texture = SDL_CreateTextureFromSurface(renderer, loading_surf);
 
-    loading_surf = IMG_Load("assets/guy.png");
+    loading_surf = IMG_Load("assets/player.png");
     SDL_Texture *player_texture = SDL_CreateTextureFromSurface(renderer, loading_surf);
+    loading_surf = IMG_Load("assets/player_jumping.png");
+    SDL_Texture *player_jumping_texture = SDL_CreateTextureFromSurface(renderer, loading_surf);
 
     loading_surf = IMG_Load("assets/platform.png");
     SDL_Texture *platform_texture = SDL_CreateTextureFromSurface(renderer, loading_surf);
+    loading_surf = IMG_Load("assets/player_platform.png");
+    SDL_Texture *player_platform_texture = SDL_CreateTextureFromSurface(renderer, loading_surf);
 
     body_t ball = {
-        .px = 300.0f,
-        .py = 200.0f,
+        .px = 440.0f + ball_radius,
+        .py = 400.0f,
         .vx = 0.0f,
-        .vy = 0.0f,
+        .vy = -300.0f,
     };
 
     body_t player = {
-        .px = 300.0f,
-        .py = 500.0f,
+        .px = 440.0f,
+        .py = 600.0f,
         .vx = 0.0f,
         .vy = 0.0f,
     };
 
     platform_t platforms[max_num_platforms];
     memset(platforms, 0, max_num_platforms * sizeof(platform_t));
-    platforms[0].x = 800.0f;
-    platforms[0].y = 360.0f;
+    platforms[0].x = 400.0f;
+    platforms[0].y = 680.0f;
     platforms[0].h = 16.0f;
     platforms[0].w = 128.0f;
-    platforms[1].x = 900.0f;
-    platforms[1].y = 560.0f;
+
+    platforms[1].x = 600.0f;
+    platforms[1].y = 680.0f - 1.0f * player_height;
     platforms[1].h = 16.0f;
     platforms[1].w = 128.0f;
     platforms[2].x = 600.0f;
-    platforms[2].y = 500.0f;
+    platforms[2].y = 680.0f - 2.0f * player_height;
     platforms[2].h = 16.0f;
     platforms[2].w = 128.0f;
-    platforms[3].x = 1000.0f;
-    platforms[3].y = 680.0f;
+    platforms[3].x = 600.0f;
+    platforms[3].y = 680.0f - 3.0f * player_height;
     platforms[3].h = 16.0f;
     platforms[3].w = 128.0f;
+    platforms[4].x = 600.0f;
+    platforms[4].y = 680.0f - 4.0f * player_height;
+    platforms[4].h = 16.0f;
+    platforms[4].w = 128.0f;
+    platforms[5].x = 600.0f;
+    platforms[5].y = 680.0f - 5.0f * player_height;
+    platforms[5].h = 16.0f;
+    platforms[5].w = 128.0f;
 
     uint32_t last_step_ticks = 0;
     float last_ball_px = 0.0f;
@@ -120,9 +137,13 @@ int main() {
     bool jump_pressed = false;
     bool player_on_ground = false;
     bool player_carrying_ball = false;
+    bool player_jumping = false;
 
     float player_carry_offset = 0.0f;
-    uint8_t ball_carry_time = 0;
+    uint32_t ball_carry_time = 0;
+    uint32_t air_time = 0;
+
+    platform_t *player_platform = NULL;
 
     while (1) {
         SDL_Event e;
@@ -174,15 +195,6 @@ int main() {
         ball.vy += steps_per_second * gravity;
         ball.px += steps_per_second * ball.vx;
         ball.py += steps_per_second * ball.vy;
-        if (ball.py + ball_radius > screen_height) {
-            ball.vy *= -1.0f;
-        }
-        if (ball.px + ball_radius > screen_width) {
-            ball.vx *= -1.0f;
-        }
-        if (ball.px - ball_radius < 0) {
-            ball.vx *= -1.0f;
-        }
 
         // Step player.
         last_player_px = player.px;
@@ -209,21 +221,17 @@ int main() {
             }
         }
         if (jump_pressed) {
-            if (player_on_ground) {
-                player.vy = -jump_velocity;
+            if (player_on_ground || air_time < coyote_time) {
                 player_on_ground = false;
+                player_jumping = true;
+            }
+            if (air_time < time_to_max_jump) {
+                player.vy = -hold_jump(-player.vy);
             }
         }
         player.vy += steps_per_second * gravity;
         player.px += steps_per_second * player.vx;
         player.py += steps_per_second * player.vy;
-        if (player.py + player_height > screen_height) {
-            player.vy = 0;
-            player.py = screen_height - player_height;
-            player_on_ground = true;
-        } else {
-            player_on_ground = false;
-        }
 
         // Squash ball.
         if (player_carrying_ball) {
@@ -255,6 +263,7 @@ int main() {
         }
 
         // Check for collision between ball and platform or player and platform.
+        player_platform = NULL;
         for (int i = 0; i < max_num_platforms; i++) {
             platform_t *platform = &platforms[i];
             {
@@ -267,15 +276,36 @@ int main() {
             {
                 bool collision = check_collision_rect_rect(player.px, player.py, player_width, player_height, platform->x, platform->y, platform->w, platform->h);
                 if (collision && last_player_py + player_height - 0.001f < platform->y && player.vy > 0) {
+                    player_platform = platform;
                     player.py = platform->y - player_height;
                     player.vy = 0.0f;
                     player_on_ground = true;
+                    player_jumping = false;
                 }
             }
+        }
+        if (player_platform == NULL) {
+            player_on_ground = false;
+        }
+
+        // Increment air time counter.
+        if (!player_on_ground) {
+            air_time++;
+        } else {
+            air_time = 0;
         }
 
         // Render.
         SDL_RenderClear(renderer);
+        for (int i = 0; i < max_num_platforms; i++) {
+            platform_t *platform = &platforms[i];
+            SDL_Rect dst_rect = {.x = (int)platform->x, .y = (int)platform->y, .w = (int)platform->w, .h = (int)platform->h};
+            if (platform == player_platform) {
+                SDL_RenderCopy(renderer, player_platform_texture, NULL, &dst_rect);
+            } else {
+                SDL_RenderCopy(renderer, platform_texture, NULL, &dst_rect);
+            }
+        }
         {
             SDL_Rect dst_rect = {.x = (int)(ball.px - ball_radius), .y = (int)(ball.py - ball_radius), .w = (int)(ball_radius * 2), .h = (int)(ball_radius * 2)};
             if (player_carrying_ball) {
@@ -293,12 +323,11 @@ int main() {
         }
         {
             SDL_Rect dst_rect = {.x = (int)player.px, .y = (int)player.py, .w = (int)player_width, .h = (int)player_height};
-            SDL_RenderCopy(renderer, player_texture, NULL, &dst_rect);
-        }
-        for (int i = 0; i < max_num_platforms; i++) {
-            platform_t *platform = &platforms[i];
-            SDL_Rect dst_rect = {.x = (int)platform->x, .y = (int)platform->y, .w = (int)platform->w, .h = (int)platform->h};
-            SDL_RenderCopy(renderer, platform_texture, NULL, &dst_rect);
+            if (player_jumping && jump_pressed && air_time < time_to_max_jump) {
+                SDL_RenderCopy(renderer, player_jumping_texture, NULL, &dst_rect);
+            } else {
+                SDL_RenderCopy(renderer, player_texture, NULL, &dst_rect);
+            }
         }
         SDL_RenderPresent(renderer);
     }
@@ -360,8 +389,29 @@ float square(float x) {
     return x * x;
 }
 
+float quadric(float x) {
+    return x * x * x * x;
+}
+
+float quadrt(float x) {
+    return sqrt(sqrt(x));
+}
+
+float quintic(float x) {
+    return x * x * x * x * x;
+}
+
+float quintic_root(float x) {
+    return pow(x, .2f);
+}
+
 float identity(float x) {
     return x;
+}
+
+// Return a value larger than or equal to velocity. Positive values only.
+float hold_jump(float velocity) {
+    return fmin(player_jump_velocity, player_jump_velocity * quintic_root(quintic(velocity / player_jump_velocity) + 1.0f / time_to_max_jump));
 }
 
 // Return a value larger than or equal to velocity. Positive values only.
