@@ -148,6 +148,9 @@ int main() {
                 case SDLK_RIGHT:
                     right_pressed = false;
                     break;
+                case SDLK_SPACE:
+                    jump_pressed = false;
+                    break;
                 default:
                     break;
                 }
@@ -205,7 +208,6 @@ int main() {
                 player.vy = -jump_velocity;
                 player_on_ground = false;
             }
-            jump_pressed = false;
         }
         player.vy += steps_per_second * gravity;
         player.px += steps_per_second * player.vx;
