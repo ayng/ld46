@@ -17,6 +17,11 @@ const float player_width = 32.0f;
 const float player_height = 32.0f;
 const float player_speed = 300.0f; // pixels/s
 
+const float gravity = 400.0f;
+const float bounce_velocity = 400.0f;
+const float ball_horiz_velocity = 200.0f;
+const float jump_velocity = 200.0f;
+
 typedef struct {
     float px, py, vx, vy;
 } body_t;
@@ -63,13 +68,14 @@ int main() {
         .vy = 0.0f,
     };
 
-    const uint8_t num_bodies = 2;
-    body_t *bodies[] = {&ball, &player};
-
     uint32_t last_step_ticks = 0;
+    float last_ball_px = 0.0f;
+    float last_ball_py = 0.0f;
 
     bool left_pressed = false;
     bool right_pressed = false;
+    bool jump_pressed = false;
+    bool player_on_ground = false;
 
     while (1) {
         SDL_Event e;
@@ -84,6 +90,9 @@ int main() {
                     break;
                 case SDLK_RIGHT:
                     right_pressed = true;
+                    break;
+                case SDLK_SPACE:
+                    jump_pressed = true;
                     break;
                 default:
                     break;
@@ -110,7 +119,9 @@ int main() {
         last_step_ticks = ticks - ticks % step_size;
 
         // Step ball.
-        ball.vy += steps_per_second * 400.0f;
+        last_ball_px = ball.px;
+        last_ball_py = ball.py;
+        ball.vy += steps_per_second * gravity;
         ball.px += steps_per_second * ball.vx;
         ball.py += steps_per_second * ball.vy;
         if (ball.py + ball_radius > screen_height) {
@@ -129,19 +140,35 @@ int main() {
         } else {
             player.vx = 0;
         }
-        player.vy += steps_per_second * 400.0f;
+        if (jump_pressed) {
+            if (player_on_ground) {
+                player.vy = -jump_velocity;
+            }
+            jump_pressed = false;
+        }
+        player.vy += steps_per_second * gravity;
         player.px += steps_per_second * player.vx;
         player.py += steps_per_second * player.vy;
 
         if (player.py + player_height > screen_height) {
             player.vy = 0;
             player.py = screen_height - player_height;
+            player_on_ground = true;
+        } else {
+            player_on_ground = false;
         }
 
         // Check for collision between ball and player.
         bool collision = check_collision_circle_rect(ball.px, ball.py, ball_radius, player.px, player.py, player_width, player_height);
-        if (collision) {
-            printf("collision!\n");
+        if (collision && last_ball_py < player.py && ball.vy > 0) {
+            ball.py = player.py - ball_radius;
+            ball.vy = -bounce_velocity;
+
+            if (left_pressed ^ right_pressed) {
+                ball.vx = left_pressed ? -ball_horiz_velocity : ball_horiz_velocity;
+            } else {
+                ball.vx = 0.0f;
+            }
         }
 
         // Render.
