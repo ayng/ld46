@@ -1,6 +1,8 @@
 #include <SDL.h>
 #include <SDL_image.h>
 
+#include <assert.h>
+#include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -12,15 +14,20 @@ const uint32_t screen_height = 720;
 const uint32_t step_size = 8; // 8 milliseconds roughly equates to 120Hz
 const float steps_per_second = (float)(step_size)*0.001f;
 
-const float ball_radius = 16.0f;
-const float player_width = 32.0f;
-const float player_height = 32.0f;
-const float player_speed = 300.0f; // pixels/s
+const float ball_radius = 16.0f;          // pixels
+const float player_width = 32.0f;         // pixels
+const float player_height = 32.0f;        // pixels
+const float player_max_velocity = 300.0f; // pixels/s
 
-const float gravity = 400.0f;
-const float bounce_velocity = 400.0f;
-const float ball_horiz_velocity = 200.0f;
-const float jump_velocity = 200.0f;
+const float gravity = 800.0f; // pixels/s/s
+
+const float bounce_velocity = 600.0f;     // pixels/s
+const float ball_horiz_velocity = 200.0f; // pixels/s
+const float jump_velocity = 500.0f;       // pixels/s
+
+const float time_to_max_velocity = 18.0f;  // steps
+const float time_to_zero_velocity = 18.0f; // steps
+const float time_to_pivot = 12.0f;         // steps
 
 typedef struct {
     float px, py, vx, vy;
@@ -28,6 +35,10 @@ typedef struct {
 
 bool check_collision_circle_rect(float, float, float, float, float, float, float);
 bool check_collision_rect_rect(float, float, float, float, float, float, float, float);
+
+float accelerate(float);
+float decelerate(float);
+float pivot(float);
 
 int main() {
     if (SDL_Init(SDL_INIT_VIDEO)) {
@@ -136,9 +147,25 @@ int main() {
 
         // Step player.
         if (left_pressed ^ right_pressed) {
-            player.vx = left_pressed ? -player_speed : player_speed;
+            if (left_pressed) {
+                if (player.vx > 0.0f) {
+                    player.vx = pivot(player.vx);
+                } else {
+                    player.vx = -accelerate(-player.vx);
+                }
+            } else {
+                if (player.vx < 0.0f) {
+                    player.vx = -pivot(-player.vx);
+                } else {
+                    player.vx = accelerate(player.vx);
+                }
+            }
         } else {
-            player.vx = 0;
+            if (player.vx > 0.0f) {
+                player.vx = decelerate(player.vx);
+            } else {
+                player.vx = -decelerate(-player.vx);
+            }
         }
         if (jump_pressed) {
             if (player_on_ground) {
@@ -235,5 +262,28 @@ bool check_collision_circle_rect(float cx, float cy, float cr, float rx, float r
     float rr = cr * cr;
 
     return d0 < rr || d1 < rr || d2 < rr || d3 < rr;
+}
+
+float square(float x) {
+    return x * x;
+}
+
+float identity(float x) {
+    return x;
+}
+
+// Return a value larger than or equal to velocity. Positive values only.
+float accelerate(float velocity) {
+    return fmin(player_max_velocity, player_max_velocity * square(sqrt(velocity / player_max_velocity) + 1.0f / time_to_max_velocity));
+}
+
+// Return a value less than velocity that approaches zero. Positive values only.
+float decelerate(float velocity) {
+    return fmax(0.0f, velocity - player_max_velocity / time_to_zero_velocity);
+}
+
+// Return a value less than velocity that approaches zero. Positive values only.
+float pivot(float velocity) {
+    return fmax(0.0f, velocity - player_max_velocity / time_to_pivot);
 }
 
