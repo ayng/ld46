@@ -28,6 +28,7 @@ const float jump_velocity = 500.0f;  // pixels/s
 const float time_to_max_velocity = 18.0f;  // steps
 const float time_to_zero_velocity = 18.0f; // steps
 const float time_to_pivot = 12.0f;         // steps
+const float time_to_squash = 12.0f;        // steps
 
 const uint32_t max_num_platforms = 32;
 
@@ -118,6 +119,10 @@ int main() {
     bool right_pressed = false;
     bool jump_pressed = false;
     bool player_on_ground = false;
+    bool player_carrying_ball = false;
+
+    float player_carry_offset = 0.0f;
+    uint8_t ball_carry_time = 0;
 
     while (1) {
         SDL_Event e;
@@ -220,18 +225,32 @@ int main() {
             player_on_ground = false;
         }
 
-        // Check for collision between ball and player.
-        {
-            bool collision = check_collision_circle_rect(ball.px, ball.py, ball_radius, player.px, player.py, player_width, player_height);
-            if (collision && last_ball_py < player.py && ball.vy > 0) {
+        // Squash ball.
+        if (player_carrying_ball) {
+            if (ball_carry_time < time_to_squash) {
+                ball.px = player.px + player_carry_offset;
+                ball.py = player.py - ball_radius;
+                ball_carry_time++;
+            } else {
                 ball.py = player.py - ball_radius;
                 ball.vy = -ball_bounce_vy;
-
                 if (left_pressed ^ right_pressed) {
                     ball.vx = left_pressed ? -ball_bounce_vx : ball_bounce_vx;
                 } else {
                     ball.vx = 0.0f;
                 }
+                player_carrying_ball = false;
+                ball_carry_time = 0;
+            }
+        }
+
+        // Check for collision between ball and player.
+        {
+            bool collision = check_collision_circle_rect(ball.px, ball.py, ball_radius, player.px, player.py, player_width, player_height);
+            if (collision && last_ball_py < player.py && ball.vy > 0) {
+                // Enter carry state.
+                player_carry_offset = ball.px - player.px;
+                player_carrying_ball = true;
             }
         }
 
@@ -259,6 +278,17 @@ int main() {
         SDL_RenderClear(renderer);
         {
             SDL_Rect dst_rect = {.x = (int)(ball.px - ball_radius), .y = (int)(ball.py - ball_radius), .w = (int)(ball_radius * 2), .h = (int)(ball_radius * 2)};
+            if (player_carrying_ball) {
+                float pct = (float)ball_carry_time / (float)time_to_squash;
+                pct *= 2;
+                pct -= 1;
+                pct = pct * pct * pct * pct;
+                pct = 1 - pct;
+                dst_rect.x -= pct * ball_radius / 2;
+                dst_rect.w += pct * ball_radius;
+                dst_rect.y += pct * ball_radius * 5 / 8;
+                dst_rect.h -= pct * ball_radius * 5 / 8;
+            }
             SDL_RenderCopy(renderer, ball_texture, NULL, &dst_rect);
         }
         {
