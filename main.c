@@ -21,17 +21,23 @@ const float player_max_velocity = 300.0f; // pixels/s
 
 const float gravity = 800.0f; // pixels/s/s
 
-const float bounce_velocity = 600.0f;     // pixels/s
-const float ball_horiz_velocity = 200.0f; // pixels/s
-const float jump_velocity = 500.0f;       // pixels/s
+const float ball_bounce_vx = 200.0f; // pixels/s
+const float ball_bounce_vy = 600.0f; // pixels/s
+const float jump_velocity = 500.0f;  // pixels/s
 
 const float time_to_max_velocity = 18.0f;  // steps
 const float time_to_zero_velocity = 18.0f; // steps
 const float time_to_pivot = 12.0f;         // steps
 
+const uint32_t max_num_platforms = 32;
+
 typedef struct {
     float px, py, vx, vy;
 } body_t;
+
+typedef struct {
+    float x, y, w, h;
+} platform_t;
 
 bool check_collision_circle_rect(float, float, float, float, float, float, float);
 bool check_collision_rect_rect(float, float, float, float, float, float, float, float);
@@ -66,22 +72,47 @@ int main() {
     loading_surf = IMG_Load("assets/guy.png");
     SDL_Texture *player_texture = SDL_CreateTextureFromSurface(renderer, loading_surf);
 
+    loading_surf = IMG_Load("assets/platform.png");
+    SDL_Texture *platform_texture = SDL_CreateTextureFromSurface(renderer, loading_surf);
+
     body_t ball = {
         .px = 300.0f,
         .py = 200.0f,
-        .vx = 200.0f,
-        .vy = 0.0f,
-    };
-    body_t player = {
-        .px = 600.0f,
-        .py = 400.0f,
         .vx = 0.0f,
         .vy = 0.0f,
     };
 
+    body_t player = {
+        .px = 300.0f,
+        .py = 500.0f,
+        .vx = 0.0f,
+        .vy = 0.0f,
+    };
+
+    platform_t platforms[max_num_platforms];
+    memset(platforms, 0, max_num_platforms * sizeof(platform_t));
+    platforms[0].x = 800.0f;
+    platforms[0].y = 360.0f;
+    platforms[0].h = 16.0f;
+    platforms[0].w = 128.0f;
+    platforms[1].x = 900.0f;
+    platforms[1].y = 560.0f;
+    platforms[1].h = 16.0f;
+    platforms[1].w = 128.0f;
+    platforms[2].x = 600.0f;
+    platforms[2].y = 500.0f;
+    platforms[2].h = 16.0f;
+    platforms[2].w = 128.0f;
+    platforms[3].x = 1000.0f;
+    platforms[3].y = 680.0f;
+    platforms[3].h = 16.0f;
+    platforms[3].w = 128.0f;
+
     uint32_t last_step_ticks = 0;
     float last_ball_px = 0.0f;
     float last_ball_py = 0.0f;
+    float last_player_px = 0.0f;
+    float last_player_py = 0.0f;
 
     bool left_pressed = false;
     bool right_pressed = false;
@@ -146,6 +177,8 @@ int main() {
         }
 
         // Step player.
+        last_player_px = player.px;
+        last_player_py = player.py;
         if (left_pressed ^ right_pressed) {
             if (left_pressed) {
                 if (player.vx > 0.0f) {
@@ -170,13 +203,13 @@ int main() {
         if (jump_pressed) {
             if (player_on_ground) {
                 player.vy = -jump_velocity;
+                player_on_ground = false;
             }
             jump_pressed = false;
         }
         player.vy += steps_per_second * gravity;
         player.px += steps_per_second * player.vx;
         player.py += steps_per_second * player.vy;
-
         if (player.py + player_height > screen_height) {
             player.vy = 0;
             player.py = screen_height - player_height;
@@ -186,15 +219,37 @@ int main() {
         }
 
         // Check for collision between ball and player.
-        bool collision = check_collision_circle_rect(ball.px, ball.py, ball_radius, player.px, player.py, player_width, player_height);
-        if (collision && last_ball_py < player.py && ball.vy > 0) {
-            ball.py = player.py - ball_radius;
-            ball.vy = -bounce_velocity;
+        {
+            bool collision = check_collision_circle_rect(ball.px, ball.py, ball_radius, player.px, player.py, player_width, player_height);
+            if (collision && last_ball_py < player.py && ball.vy > 0) {
+                ball.py = player.py - ball_radius;
+                ball.vy = -ball_bounce_vy;
 
-            if (left_pressed ^ right_pressed) {
-                ball.vx = left_pressed ? -ball_horiz_velocity : ball_horiz_velocity;
-            } else {
-                ball.vx = 0.0f;
+                if (left_pressed ^ right_pressed) {
+                    ball.vx = left_pressed ? -ball_bounce_vx : ball_bounce_vx;
+                } else {
+                    ball.vx = 0.0f;
+                }
+            }
+        }
+
+        // Check for collision between ball and platform or player and platform.
+        for (int i = 0; i < max_num_platforms; i++) {
+            platform_t *platform = &platforms[i];
+            {
+                bool collision = check_collision_circle_rect(ball.px, ball.py, ball_radius, platform->x, platform->y, platform->w, platform->h);
+                if (collision && last_ball_py < platform->y && ball.vy > 0) {
+                    ball.py = platform->y - ball_radius;
+                    ball.vy = -ball.vy;
+                }
+            }
+            {
+                bool collision = check_collision_rect_rect(player.px, player.py, player_width, player_height, platform->x, platform->y, platform->w, platform->h);
+                if (collision && last_player_py + player_height - 0.001f < platform->y && player.vy > 0) {
+                    player.py = platform->y - player_height;
+                    player.vy = 0.0f;
+                    player_on_ground = true;
+                }
             }
         }
 
@@ -207,6 +262,11 @@ int main() {
         {
             SDL_Rect dst_rect = {.x = (int)player.px, .y = (int)player.py, .w = (int)player_width, .h = (int)player_height};
             SDL_RenderCopy(renderer, player_texture, NULL, &dst_rect);
+        }
+        for (int i = 0; i < max_num_platforms; i++) {
+            platform_t *platform = &platforms[i];
+            SDL_Rect dst_rect = {.x = (int)platform->x, .y = (int)platform->y, .w = (int)platform->w, .h = (int)platform->h};
+            SDL_RenderCopy(renderer, platform_texture, NULL, &dst_rect);
         }
         SDL_RenderPresent(renderer);
     }
