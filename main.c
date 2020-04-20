@@ -256,17 +256,13 @@ int main() {
                 player_jumping = true;
             }
         }
-        if (time_since_jump_press >= time_since_jump_release || jump_time > time_to_max_jump) {
-            // Either jump button was released or max jump has already been reached.
+        if (jump_time > time_to_max_jump) {
+            // Max jump has been reached.
             player_jumping = false;
         }
         if (player_jumping) {
             player.vy = player_max_jump_height * jump_velocity((float)jump_time / time_to_max_jump);
         } else {
-            if (player.vy > 10.0f) {
-                // Attenuate vertical velocity when, say, jump button was released.
-                player.vy *= jump_release_attenuation;
-            }
             if (down_pressed) {
                 player.vy = fmax(-player_terminal_velocity, player.vy - steps_per_second * fast_gravity);
             } else {
