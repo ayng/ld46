@@ -21,11 +21,15 @@ const float player_height = 32.0f; // pixels
 const float gravity = 800.0f;       // pixels/s/s
 const float fast_gravity = 2400.0f; // pixels/s/s
 
-const float ball_bounce_vx = 200.0f;           // pixels/s
-const float ball_bounce_vy = 600.0f;           // pixels/s
-const float player_max_velocity = 300.0f;      // pixels/s
-const float player_terminal_velocity = 600.0f; // pixels/s
-const float player_max_jump_height = 5.0f * player_height;
+const float ball_bounce_vx = 200.0f;                       // pixels/s
+const float ball_bounce_vy = 600.0f;                       // pixels/s
+const float player_max_velocity = 300.0f;                  // pixels/s
+const float player_terminal_velocity = 600.0f;             // pixels/s
+const float player_max_jump_height = 5.0f * player_height; // pixels
+
+const float ball_bounce_attenuation = 0.7f;
+
+const float ball_no_bounce_velocity = 120.0f; // pixels/s
 
 const uint32_t coyote_time = 8;         // steps
 const uint32_t time_to_buffer_jump = 8; // steps
@@ -144,9 +148,14 @@ int main() {
     bool player_on_ground = false;
     bool player_carrying_ball = false;
     bool player_jumping = false;
+    bool ball_bouncing = false;
 
     float player_carry_offset = 0.0f;
+    float stored_ball_vx = 0.0f;
+    float stored_ball_vy = 0.0f;
+    float stored_ball_py = 0.0f;
     uint32_t ball_carry_time = 0;
+    uint32_t ball_bounce_time = 0;
     uint32_t air_time = 0;
     uint32_t jump_time = 0;
     uint32_t time_since_jump_press = max_time;
@@ -272,7 +281,6 @@ int main() {
                 player.vy = fmin(player_terminal_velocity, player.vy + steps_per_second * gravity);
             }
         }
-
         player.px += steps_per_second * player.vx;
         player.py += steps_per_second * player.vy;
 
@@ -294,6 +302,17 @@ int main() {
                 ball_carry_time = 0;
             }
         }
+        if (ball_bouncing) {
+            if (ball_bounce_time < time_to_squash) {
+                ball_bounce_time++;
+            } else {
+                ball.vx = stored_ball_vx;
+                ball.vy = stored_ball_vy;
+                ball.py = stored_ball_py;
+                ball_bouncing = false;
+                ball_bounce_time = 0;
+            }
+        }
 
         // Check for collision between ball and player.
         {
@@ -311,9 +330,19 @@ int main() {
             platform_t *platform = &platforms[i];
             {
                 bool collision = check_collision_circle_rect(ball.px, ball.py, ball_radius, platform->x, platform->y, platform->w, platform->h);
-                if (collision && last_ball_py < platform->y && ball.vy > 0) {
-                    ball.py = platform->y - ball_radius;
-                    ball.vy = -ball.vy;
+                if (collision && last_ball_py + ball_radius - 0.001f < platform->y && ball.vy > 0) {
+                    if (ball.vy < ball_no_bounce_velocity) {
+                        ball.py = platform->y - ball_radius;
+                        ball.vy = 0.0f;
+                    } else {
+                        ball_bouncing = true;
+                        stored_ball_vx = ball.vx;
+                        stored_ball_vy = -ball_bounce_attenuation * ball.vy;
+                        ball.vx = 0.0f;
+                        ball.vy = 0.0f;
+                        ball.py = platform->y - ball_radius;
+                        stored_ball_py = ball.py;
+                    }
                 }
             }
             {
@@ -331,7 +360,7 @@ int main() {
             player_on_ground = false;
         }
 
-        // Increment air time counter.
+        // Increment counters.
         if (!player_on_ground) {
             air_time++;
             if (player_jumping) {
@@ -341,7 +370,6 @@ int main() {
             air_time = 0;
             jump_time = 0;
         }
-
         if (time_since_jump_press < max_time) {
             time_since_jump_press++;
         }
@@ -364,6 +392,17 @@ int main() {
             SDL_Rect dst_rect = {.x = (int)(ball.px - ball_radius), .y = (int)(ball.py - ball_radius), .w = (int)(ball_radius * 2), .h = (int)(ball_radius * 2)};
             if (player_carrying_ball) {
                 float pct = (float)ball_carry_time / (float)time_to_squash;
+                pct *= 2;
+                pct -= 1;
+                pct = pct * pct * pct * pct;
+                pct = 1 - pct;
+                dst_rect.x -= pct * ball_radius / 2;
+                dst_rect.w += pct * ball_radius;
+                dst_rect.y += pct * ball_radius * 5 / 8;
+                dst_rect.h -= pct * ball_radius * 5 / 8;
+            }
+            if (ball_bouncing) {
+                float pct = (float)ball_bounce_time / (float)time_to_squash;
                 pct *= 2;
                 pct -= 1;
                 pct = pct * pct * pct * pct;
