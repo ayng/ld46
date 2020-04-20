@@ -335,7 +335,7 @@ int main() {
                     check_collision_circle_rect(positive_fmod(ball.px, (float)screen_width), ball.py, ball_radius,
                                                 positive_fmod(platform->x, (float)screen_width), platform->y, platform->w, platform->h) ||
                     check_collision_circle_rect(positive_fmod(ball.px, (float)screen_width), ball.py, ball_radius,
-                                                positive_fmod(platform->x, (float)screen_width), platform->y, platform->w, platform->h);
+                                                positive_fmod(platform->x, (float)screen_width) - screen_width, platform->y, platform->w, platform->h);
                 if (collision && last_ball_py - ball_radius + 0.001f > platform->y + platform->h && ball.vy < 0) {
                     ball.py = platform->y + platform->h + ball_radius;
                     if (ball.vy > -ball_no_bounce_velocity) {
