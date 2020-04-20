@@ -32,7 +32,7 @@ const float player_terminal_velocity = 600.0f;              // pixels/s
 const float player_jump_velocity = 440.0f;                  // pixels/s
 const float player_max_jump_height = 10.0f * player_height; // pixels
 
-const float ball_bounce_attenuation = 0.8f;
+const float ball_bounce_attenuation = 0.95f;
 const float jump_release_attenuation = 0.9f;
 
 const float ball_no_bounce_velocity = 120.0f; // pixels/s
@@ -86,11 +86,13 @@ int main() {
         return EXIT_FAILURE;
     }
 
+    SDL_SetRenderDrawColor(renderer, 164, 128, 128, 255);
+
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
 
     SDL_Surface *loading_surf;
 
-    loading_surf = IMG_Load("assets/ball2.png");
+    loading_surf = IMG_Load("assets/ball3.png");
     SDL_Texture *ball_texture = SDL_CreateTextureFromSurface(renderer, loading_surf);
 
     loading_surf = IMG_Load("assets/player.png");
@@ -98,7 +100,7 @@ int main() {
     loading_surf = IMG_Load("assets/player_jumping.png");
     SDL_Texture *player_jumping_texture = SDL_CreateTextureFromSurface(renderer, loading_surf);
 
-    loading_surf = IMG_Load("assets/brick.png");
+    loading_surf = IMG_Load("assets/brick2.png");
     SDL_Texture *brick_texture = SDL_CreateTextureFromSurface(renderer, loading_surf);
 
     srand(time(NULL));
