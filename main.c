@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 const char *window_title = "LD46";
 const uint32_t screen_width = 1280;
@@ -25,22 +26,22 @@ const float ball_bounce_vx = 200.0f;                       // pixels/s
 const float ball_bounce_vy = 600.0f;                       // pixels/s
 const float player_max_velocity = 300.0f;                  // pixels/s
 const float player_terminal_velocity = 600.0f;             // pixels/s
-const float player_max_jump_height = 5.0f * player_height; // pixels
+const float player_max_jump_height = 6.0f * player_height; // pixels
 
 const float ball_bounce_attenuation = 0.7f;
+const float jump_release_attenuation = 0.9f;
 
 const float ball_no_bounce_velocity = 120.0f; // pixels/s
 
-const uint32_t coyote_time = 8;         // steps
+const uint32_t coyote_time = 12;        // steps
 const uint32_t time_to_buffer_jump = 8; // steps
 const uint32_t max_time = 65535;        // steps
 
-const float time_to_max_velocity = 18.0f;       // steps
-const float time_to_zero_velocity = 18.0f;      // steps
-const float time_to_pivot = 12.0f;              // steps
-const float time_to_squash = 12.0f;             // steps
-const float time_to_max_jump = 64.0f;           // steps
-const float time_to_fall_from_max_jump = 32.0f; // steps
+const float time_to_max_velocity = 18.0f;  // steps
+const float time_to_zero_velocity = 18.0f; // steps
+const float time_to_pivot = 12.0f;         // steps
+const float time_to_squash = 12.0f;        // steps
+const float time_to_max_jump = 64.0f;      // steps
 
 const uint32_t max_num_platforms = 32;
 
@@ -60,6 +61,8 @@ float fall_velocity(float);
 float accelerate(float);
 float decelerate(float);
 float pivot(float);
+
+float rand_range(float, float);
 
 int main() {
     if (SDL_Init(SDL_INIT_VIDEO)) {
@@ -94,47 +97,41 @@ int main() {
     loading_surf = IMG_Load("assets/player_platform.png");
     SDL_Texture *player_platform_texture = SDL_CreateTextureFromSurface(renderer, loading_surf);
 
+    srand(time(NULL));
+    float start_x = rand_range(128.0f, screen_width - 128.0f);
+    float start_y = 128.0f;
+
     body_t ball = {
-        .px = 440.0f + ball_radius,
-        .py = 400.0f,
-        .vx = 0.0f,
-        .vy = -300.0f,
+        .px = start_x,
+        .py = start_y + 256.0f,
     };
 
     body_t player = {
-        .px = 440.0f,
-        .py = 600.0f,
-        .vx = 0.0f,
-        .vy = 0.0f,
+        .px = start_x - player_width / 2,
+        .py = start_y + 128.0f,
     };
 
     platform_t platforms[max_num_platforms];
     memset(platforms, 0, max_num_platforms * sizeof(platform_t));
-    platforms[0].x = 400.0f;
-    platforms[0].y = 100.0f;
+    platforms[0].x = start_x - 64.0f;
+    platforms[0].y = start_y;
     platforms[0].h = 16.0f;
     platforms[0].w = 128.0f;
 
-    platforms[1].x = 600.0f;
-    platforms[1].y = 680.0f - 1.0f * player_height;
-    platforms[1].h = 16.0f;
-    platforms[1].w = 128.0f;
-    platforms[2].x = 600.0f;
-    platforms[2].y = 680.0f - 2.0f * player_height;
-    platforms[2].h = 16.0f;
-    platforms[2].w = 128.0f;
-    platforms[3].x = 600.0f;
-    platforms[3].y = 680.0f - 3.0f * player_height;
-    platforms[3].h = 16.0f;
-    platforms[3].w = 128.0f;
-    platforms[4].x = 600.0f;
-    platforms[4].y = 680.0f - 4.0f * player_height;
-    platforms[4].h = 16.0f;
-    platforms[4].w = 128.0f;
-    platforms[5].x = 600.0f;
-    platforms[5].y = 680.0f - 5.0f * player_height;
-    platforms[5].h = 16.0f;
-    platforms[5].w = 128.0f;
+    const int loaded_platform_levels = 4;
+    int j = 1;
+    for (int i = 0; i < loaded_platform_levels; i++) {
+        j++;
+        platforms[j].x = rand_range(128.0f, screen_width - 128.0f);
+        platforms[j].y = start_y + j * player_height;
+        platforms[j].w = 128.0f;
+        platforms[j].h = 16.0f;
+        j++;
+        platforms[j].x = rand_range(128.0f, screen_width - 128.0f);
+        platforms[j].y = start_y + j * player_height;
+        platforms[j].w = 128.0f;
+        platforms[j].h = 16.0f;
+    }
 
     uint32_t last_step_ticks = 0;
     float last_ball_px = 0.0f;
@@ -272,8 +269,8 @@ int main() {
         if (jump_time > time_to_max_jump) {
             player_jumping = false;
         }
-        if (!player_jumping && player.vy > 100.0f) {
-            player.vy *= 0.80f;
+        if (!player_jumping && player.vy > 200.0f) {
+            player.vy *= jump_release_attenuation;
         } else {
             if (down_pressed) {
                 player.vy = fmax(-player_terminal_velocity, player.vy - steps_per_second * fast_gravity);
@@ -526,5 +523,10 @@ float decelerate(float velocity) {
 // Return a value less than velocity that approaches zero. Positive values only.
 float pivot(float velocity) {
     return fmax(0.0f, velocity - player_max_velocity / time_to_pivot);
+}
+
+float rand_range(float min, float max) {
+    float r = (float)rand() / (float)RAND_MAX;
+    return min + r * (max - min);
 }
 
