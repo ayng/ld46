@@ -15,7 +15,7 @@ const uint32_t screen_height = 720;
 const uint32_t step_size = 8; // 8 milliseconds roughly equates to 120Hz
 const float steps_per_second = (float)(step_size)*0.001f;
 
-const float ball_radius = 12.0f;   // pixels
+const float ball_radius = 10.0f;   // pixels
 const float player_width = 32.0f;  // pixels
 const float player_height = 32.0f; // pixels
 const float brick_width = 64.0f;   // pixels
@@ -25,7 +25,7 @@ const float gravity = 800.0f;       // pixels/s/s
 const float fast_gravity = 2400.0f; // pixels/s/s
 
 const float ball_bounce_vx = 200.0f;                        // pixels/s
-const float ball_bounce_vy = 600.0f;                        // pixels/s
+const float ball_bounce_vy = 620.0f;                        // pixels/s
 const float ball_light_bounce_vx = 80.0f;                   // pixels/s
 const float player_max_velocity = 300.0f;                   // pixels/s
 const float player_terminal_velocity = 600.0f;              // pixels/s
@@ -86,19 +86,23 @@ int main() {
         return EXIT_FAILURE;
     }
 
-    SDL_SetRenderDrawColor(renderer, 164, 128, 128, 255);
+    SDL_SetRenderDrawColor(renderer, 32, 32, 64, 255);
 
-    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
+    //SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
 
     SDL_Surface *loading_surf;
 
     loading_surf = IMG_Load("assets/ball3.png");
     SDL_Texture *ball_texture = SDL_CreateTextureFromSurface(renderer, loading_surf);
+    loading_surf = IMG_Load("assets/ball_squash.png");
+    SDL_Texture *ball_squash_texture = SDL_CreateTextureFromSurface(renderer, loading_surf);
 
-    loading_surf = IMG_Load("assets/player.png");
+    loading_surf = IMG_Load("assets/guy2.png");
     SDL_Texture *player_texture = SDL_CreateTextureFromSurface(renderer, loading_surf);
-    loading_surf = IMG_Load("assets/player_jumping.png");
-    SDL_Texture *player_jumping_texture = SDL_CreateTextureFromSurface(renderer, loading_surf);
+    loading_surf = IMG_Load("assets/guy2_jump.png");
+    SDL_Texture *player_jump_texture = SDL_CreateTextureFromSurface(renderer, loading_surf);
+    loading_surf = IMG_Load("assets/guy2_fall.png");
+    SDL_Texture *player_fall_texture = SDL_CreateTextureFromSurface(renderer, loading_surf);
 
     loading_surf = IMG_Load("assets/brick2.png");
     SDL_Texture *brick_texture = SDL_CreateTextureFromSurface(renderer, loading_surf);
@@ -433,45 +437,39 @@ int main() {
         }
         {
             SDL_Rect dst_rect = {.x = (int)(ball.px - ball_radius), .y = screen_height - (int)(ball.py + ball_radius - camera_y), .w = (int)(ball_radius * 2), .h = (int)(ball_radius * 2)};
+            if (player_carrying_ball || ball_bouncing) {
+                const int ball_squash_width = 2.0f * ball_radius + 4.0f * 4.0f;
+                float x = ball.px - (float)ball_squash_width / 2.0f;
+                dst_rect.w = ball_squash_width;
+                dst_rect.x = x;
+            }
             dst_rect.x = positive_fmod(dst_rect.x, screen_width);
             SDL_Rect wrap_rect = dst_rect;
             wrap_rect.x -= screen_width;
-            if (player_carrying_ball) {
-                float pct = (float)ball_carry_time / (float)time_to_squash;
-                pct *= 2;
-                pct -= 1;
-                pct = pct * pct * pct * pct;
-                pct = 1 - pct;
-                dst_rect.x -= pct * ball_radius / 2;
-                dst_rect.w += pct * ball_radius;
-                dst_rect.y += pct * ball_radius * 5 / 8;
-                dst_rect.h -= pct * ball_radius * 5 / 8;
+            if (player_carrying_ball || ball_bouncing) {
+                SDL_RenderCopy(renderer, ball_squash_texture, NULL, &dst_rect);
+                SDL_RenderCopy(renderer, ball_squash_texture, NULL, &wrap_rect);
+            } else {
+                SDL_RenderCopy(renderer, ball_texture, NULL, &dst_rect);
+                SDL_RenderCopy(renderer, ball_texture, NULL, &wrap_rect);
             }
-            if (ball_bouncing) {
-                float pct = (float)ball_bounce_time / (float)time_to_squash;
-                pct *= 2;
-                pct -= 1;
-                pct = pct * pct * pct * pct;
-                pct = 1 - pct;
-                dst_rect.x -= pct * ball_radius / 2;
-                dst_rect.w += pct * ball_radius;
-                dst_rect.y += pct * ball_radius * 5 / 8;
-                dst_rect.h -= pct * ball_radius * 5 / 8;
-            }
-            SDL_RenderCopy(renderer, ball_texture, NULL, &dst_rect);
-            SDL_RenderCopy(renderer, ball_texture, NULL, &wrap_rect);
         }
         {
             SDL_Rect dst_rect = {.x = (int)player.px, .y = screen_height - (int)(player.py + player_height - camera_y), .w = (int)player_width, .h = (int)player_height};
             dst_rect.x = positive_fmod(dst_rect.x, screen_width);
             SDL_Rect wrap_rect = dst_rect;
             wrap_rect.x -= screen_width;
-            if (player_jumping) {
-                SDL_RenderCopy(renderer, player_jumping_texture, NULL, &dst_rect);
-                SDL_RenderCopy(renderer, player_jumping_texture, NULL, &wrap_rect);
-            } else {
+            if (player_on_ground || air_time < coyote_time) {
                 SDL_RenderCopy(renderer, player_texture, NULL, &dst_rect);
                 SDL_RenderCopy(renderer, player_texture, NULL, &wrap_rect);
+            } else {
+                if (player_jumping) {
+                    SDL_RenderCopy(renderer, player_jump_texture, NULL, &dst_rect);
+                    SDL_RenderCopy(renderer, player_jump_texture, NULL, &wrap_rect);
+                } else {
+                    SDL_RenderCopy(renderer, player_fall_texture, NULL, &dst_rect);
+                    SDL_RenderCopy(renderer, player_fall_texture, NULL, &wrap_rect);
+                }
             }
         }
         SDL_RenderPresent(renderer);
