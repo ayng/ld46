@@ -53,6 +53,8 @@ const float camera_move_factor = 0.04f;
 
 const uint32_t max_num_bricks = 256;
 
+const char *game_over_text = " press R to restart ";
+
 typedef struct {
     float px, py, vx, vy;
 } body_t;
@@ -117,12 +119,24 @@ int main() {
 
     int glyph_width, glyph_height;
     TTF_SizeText(font, "a", &glyph_width, &glyph_height);
-    SDL_Color text_color = {255, 255, 255, 255};
-    SDL_Texture *number_textures[10];
+    SDL_Color white = {255, 255, 255, 255};
+    SDL_Color yellow = {232, 234, 74, 255};
+    SDL_Color black = {0, 0, 0, 255};
+    SDL_Texture *white_number_textures[10];
+    SDL_Texture *yellow_number_textures[10];
     for (int i = 0; i < 10; i++) {
-        loading_surf = TTF_RenderGlyph_Blended(font, '0' + i, text_color);
-        number_textures[i] = SDL_CreateTextureFromSurface(renderer, loading_surf);
+        loading_surf = TTF_RenderGlyph_Blended(font, '0' + i, white);
+        white_number_textures[i] = SDL_CreateTextureFromSurface(renderer, loading_surf);
+        loading_surf = TTF_RenderGlyph_Blended(font, '0' + i, yellow);
+        yellow_number_textures[i] = SDL_CreateTextureFromSurface(renderer, loading_surf);
     }
+
+    int game_over_text_width, game_over_text_height;
+    TTF_SizeText(font, game_over_text, &game_over_text_width, &game_over_text_height);
+    loading_surf = TTF_RenderText_Shaded(font, game_over_text, white, black);
+    SDL_Texture *game_over_text_texture = SDL_CreateTextureFromSurface(renderer, loading_surf);
+
+    int high_score = 0;
 
 init:;
 
@@ -373,6 +387,9 @@ init:;
                 hit_brick->y = 0;
                 hit_brick = NULL;
                 score++;
+                if (score > high_score) {
+                    high_score = score;
+                }
             }
         }
 
@@ -401,6 +418,10 @@ init:;
         player_brick = NULL;
         for (int i = 0; i < max_num_bricks; i++) {
             brick_t *brick = &bricks[i];
+            if (brick->y + brick_height < camera_y) {
+                // Off-screen bricks don't have collision.
+                continue;
+            }
             {
                 bool collision =
                     check_collision_circle_rect(positive_fmod(ball.px, (float)screen_width), ball.py, ball_radius,
@@ -516,11 +537,25 @@ init:;
             int digit = score;
             int i = 0;
             do {
-                SDL_Rect dst_rect = {screen_width - glyph_width * (i + 1), screen_height - glyph_height, glyph_width, glyph_height};
-                SDL_RenderCopy(renderer, number_textures[digit % 10], NULL, &dst_rect);
+                SDL_Rect dst_rect = {screen_width - glyph_width * (i + 1), screen_height - 2.0f * glyph_height, glyph_width, glyph_height};
+                SDL_RenderCopy(renderer, white_number_textures[digit % 10], NULL, &dst_rect);
                 digit /= 10;
                 i++;
             } while (digit > 0);
+        }
+        {
+            int digit = high_score;
+            int i = 0;
+            do {
+                SDL_Rect dst_rect = {screen_width - glyph_width * (i + 1), screen_height - glyph_height, glyph_width, glyph_height};
+                SDL_RenderCopy(renderer, yellow_number_textures[digit % 10], NULL, &dst_rect);
+                digit /= 10;
+                i++;
+            } while (digit > 0);
+        }
+        if (game_over) {
+            SDL_Rect dst_rect = {screen_width * 0.5f - game_over_text_width * 0.5f, screen_height * 0.5f - game_over_text_height * 0.5f, game_over_text_width, game_over_text_height};
+            SDL_RenderCopy(renderer, game_over_text_texture, NULL, &dst_rect);
         }
         SDL_RenderPresent(renderer);
     }
