@@ -18,6 +18,8 @@ const float steps_per_second = (float)(step_size)*0.001f;
 const float ball_radius = 16.0f;   // pixels
 const float player_width = 32.0f;  // pixels
 const float player_height = 32.0f; // pixels
+const float brick_width = 64.0f;   // pixels
+const float brick_height = 16.0f;  // pixels
 
 const float gravity = 800.0f;       // pixels/s/s
 const float fast_gravity = 2400.0f; // pixels/s/s
@@ -46,15 +48,15 @@ const float time_to_max_jump = 64.0f;      // steps
 const float camera_focus_bottom_margin = 128.0f;
 const float camera_move_factor = 0.04f;
 
-const uint32_t max_num_platforms = 32;
+const uint32_t max_num_bricks = 256;
 
 typedef struct {
     float px, py, vx, vy;
 } body_t;
 
 typedef struct {
-    float x, y, w, h;
-} platform_t;
+    float x, y;
+} brick_t;
 
 bool check_collision_circle_rect(float, float, float, float, float, float, float);
 bool check_collision_rect_rect(float, float, float, float, float, float, float, float);
@@ -96,10 +98,8 @@ int main() {
     loading_surf = IMG_Load("assets/player_jumping.png");
     SDL_Texture *player_jumping_texture = SDL_CreateTextureFromSurface(renderer, loading_surf);
 
-    loading_surf = IMG_Load("assets/platform.png");
-    SDL_Texture *platform_texture = SDL_CreateTextureFromSurface(renderer, loading_surf);
-    loading_surf = IMG_Load("assets/player_platform.png");
-    SDL_Texture *player_platform_texture = SDL_CreateTextureFromSurface(renderer, loading_surf);
+    loading_surf = IMG_Load("assets/brick.png");
+    SDL_Texture *brick_texture = SDL_CreateTextureFromSurface(renderer, loading_surf);
 
     srand(time(NULL));
     float start_x = rand_range(128.0f, screen_width - 128.0f);
@@ -115,21 +115,12 @@ int main() {
         .py = start_y + 128.0f,
     };
 
-    platform_t platforms[max_num_platforms];
-    memset(platforms, 0, max_num_platforms * sizeof(platform_t));
-    platforms[0].x = start_x - 64.0f;
-    platforms[0].y = start_y;
-    platforms[0].h = 16.0f;
-    platforms[0].w = 128.0f;
-
-    const int loaded_platforms = 16;
-    const float range = (float)screen_width / 3.0f;
-    for (int i = 1; i < loaded_platforms; i++) {
-        platforms[i].x = rand_range(platforms[i - 1].x, platforms[i - 1].x + range);
-        platforms[i].y = start_y + i * 2.0f * player_height;
-        platforms[i].w = 128.0f;
-        platforms[i].h = 16.0f;
-    }
+    brick_t bricks[max_num_bricks];
+    memset(bricks, 0, max_num_bricks * sizeof(brick_t));
+    bricks[0].x = start_x - 64.0f;
+    bricks[0].y = start_y + 64.0f;
+    bricks[1].x = start_x;
+    bricks[1].y = start_y + 64.0f;
 
     uint32_t last_step_ticks = 0;
     float last_ball_px = 0.0f;
@@ -149,6 +140,8 @@ int main() {
     float stored_ball_vx = 0.0f;
     float stored_ball_vy = 0.0f;
     float stored_ball_py = 0.0f;
+    brick_t *hit_brick1 = NULL;
+    brick_t *hit_brick2 = NULL;
 
     uint32_t ball_carry_time = 0;
     uint32_t ball_bounce_time = 0;
@@ -158,9 +151,9 @@ int main() {
     uint32_t time_since_jump_release = max_time - 1;
 
     float camera_y = 0.0f;
-    float camera_focus_y = platforms[0].y;
+    float camera_focus_y = bricks[0].y;
 
-    platform_t *player_platform = NULL;
+    brick_t *player_brick = NULL;
 
     while (1) {
         SDL_Event e;
@@ -280,6 +273,7 @@ int main() {
                 player.vy = fmax(-player_terminal_velocity, player.vy - steps_per_second * gravity);
             }
         }
+
         player.px += steps_per_second * player.vx;
         player.py += steps_per_second * player.vy;
 
@@ -309,6 +303,16 @@ int main() {
                 ball.py = stored_ball_py;
                 ball_bouncing = false;
                 ball_bounce_time = 0;
+                if (hit_brick1 != NULL) {
+                    hit_brick1->x = 0;
+                    hit_brick1->y = 0;
+                    hit_brick1 = NULL;
+                }
+                if (hit_brick2 != NULL) {
+                    hit_brick2->x = 0;
+                    hit_brick2->y = 0;
+                    hit_brick2 = NULL;
+                }
             }
         }
 
@@ -326,18 +330,18 @@ int main() {
             }
         }
 
-        // Check for collision between ball and platform or player and platform.
-        player_platform = NULL;
-        for (int i = 0; i < max_num_platforms; i++) {
-            platform_t *platform = &platforms[i];
+        // Check for collision between ball and brick or player and brick.
+        player_brick = NULL;
+        for (int i = 0; i < max_num_bricks; i++) {
+            brick_t *brick = &bricks[i];
             {
                 bool collision =
                     check_collision_circle_rect(positive_fmod(ball.px, (float)screen_width), ball.py, ball_radius,
-                                                positive_fmod(platform->x, (float)screen_width), platform->y, platform->w, platform->h) ||
+                                                positive_fmod(brick->x, (float)screen_width), brick->y, brick_width, brick_height) ||
                     check_collision_circle_rect(positive_fmod(ball.px, (float)screen_width), ball.py, ball_radius,
-                                                positive_fmod(platform->x, (float)screen_width) - screen_width, platform->y, platform->w, platform->h);
-                if (collision && last_ball_py - ball_radius + 0.001f > platform->y + platform->h && ball.vy < 0) {
-                    ball.py = platform->y + platform->h + ball_radius;
+                                                positive_fmod(brick->x, (float)screen_width) - screen_width, brick->y, brick_width, brick_height);
+                if (collision && last_ball_py - ball_radius + 0.001f > brick->y + brick_height && ball.vy < 0) {
+                    ball.py = brick->y + brick_height + ball_radius;
                     if (ball.vy > -ball_no_bounce_velocity) {
                         ball.vy = 0.0f;
                     } else {
@@ -347,26 +351,31 @@ int main() {
                         ball.vx = 0.0f;
                         ball.vy = 0.0f;
                         stored_ball_py = ball.py;
+                        if (hit_brick1 == NULL) {
+                            hit_brick1 = brick;
+                        } else if (hit_brick2 == NULL) {
+                            hit_brick2 = brick;
+                        }
                     }
                 }
             }
             {
                 bool collision =
                     check_collision_rect_rect(positive_fmod(player.px, (float)screen_width), player.py, player_width, player_height,
-                                              positive_fmod(platform->x, (float)screen_width), platform->y, platform->w, platform->h) ||
+                                              positive_fmod(brick->x, (float)screen_width), brick->y, brick_width, brick_height) ||
                     check_collision_rect_rect(positive_fmod(player.px, (float)screen_width), player.py, player_width, player_height,
-                                              positive_fmod(platform->x, (float)screen_width) - screen_width, platform->y, platform->w, platform->h);
-                if (collision && last_player_py + 0.001f > platform->y + platform->h && player.vy < 0) {
-                    camera_focus_y = fmax(camera_focus_y, platform->y);
-                    player_platform = platform;
-                    player.py = platform->y + platform->h;
+                                              positive_fmod(brick->x, (float)screen_width) - screen_width, brick->y, brick_width, brick_height);
+                if (collision && last_player_py + 0.001f > brick->y + brick_height && player.vy < 0) {
+                    camera_focus_y = fmax(camera_focus_y, brick->y);
+                    player_brick = brick;
+                    player.py = brick->y + brick_height;
                     player.vy = 0.0f;
                     player_on_ground = true;
                     player_jumping = false;
                 }
             }
         }
-        if (player_platform == NULL) {
+        if (player_brick == NULL) {
             player_on_ground = false;
         }
 
@@ -395,19 +404,14 @@ int main() {
 
         // Render.
         SDL_RenderClear(renderer);
-        for (int i = 0; i < max_num_platforms; i++) {
-            platform_t *platform = &platforms[i];
-            SDL_Rect dst_rect = {.x = (int)platform->x, .y = screen_height - (int)(platform->y + platform->h - camera_y), .w = (int)platform->w, .h = (int)platform->h};
+        for (int i = 0; i < max_num_bricks; i++) {
+            brick_t *brick = &bricks[i];
+            SDL_Rect dst_rect = {.x = (int)brick->x, .y = screen_height - (int)(brick->y + brick_height - camera_y), .w = (int)brick_width, .h = (int)brick_height};
             dst_rect.x = positive_fmod(dst_rect.x, screen_width);
             SDL_Rect wrap_rect = dst_rect;
             wrap_rect.x -= screen_width;
-            if (platform == player_platform) {
-                SDL_RenderCopy(renderer, player_platform_texture, NULL, &dst_rect);
-                SDL_RenderCopy(renderer, player_platform_texture, NULL, &wrap_rect);
-            } else {
-                SDL_RenderCopy(renderer, platform_texture, NULL, &dst_rect);
-                SDL_RenderCopy(renderer, platform_texture, NULL, &wrap_rect);
-            }
+            SDL_RenderCopy(renderer, brick_texture, NULL, &dst_rect);
+            SDL_RenderCopy(renderer, brick_texture, NULL, &wrap_rect);
         }
         {
             SDL_Rect dst_rect = {.x = (int)(ball.px - ball_radius), .y = screen_height - (int)(ball.py + ball_radius - camera_y), .w = (int)(ball_radius * 2), .h = (int)(ball_radius * 2)};
