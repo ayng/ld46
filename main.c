@@ -285,8 +285,12 @@ int main() {
             // Max jump has been reached.
             player_jumping = false;
         }
+        if (!player_jumping && down_pressed) {
+            player.vy -= steps_per_second * fast_gravity;
+        } else {
+            player.vy -= steps_per_second * gravity;
+        }
 
-        player.vy -= steps_per_second * gravity;
         player.px += steps_per_second * player.vx;
         player.py += steps_per_second * player.vy;
 
