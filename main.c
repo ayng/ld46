@@ -357,7 +357,7 @@ int main() {
                     check_collision_rect_rect(positive_fmod(player.px, (float)screen_width), player.py, player_width, player_height,
                                               positive_fmod(platform->x, (float)screen_width) - screen_width, platform->y, platform->w, platform->h);
                 if (collision && last_player_py + 0.001f > platform->y + platform->h && player.vy < 0) {
-                    camera_focus_y = platform->y;
+                    camera_focus_y = fmax(camera_focus_y, platform->y);
                     player_platform = platform;
                     player.py = platform->y + platform->h;
                     player.vy = 0.0f;
