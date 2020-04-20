@@ -1,5 +1,6 @@
 #include <SDL.h>
 #include <SDL_image.h>
+#include <SDL_ttf.h>
 
 #include <assert.h>
 #include <math.h>
@@ -75,6 +76,10 @@ int main() {
         return EXIT_FAILURE;
     }
 
+    if (TTF_Init()) {
+        return EXIT_FAILURE;
+    }
+
     SDL_Window *win = SDL_CreateWindow(window_title, 100, 100, screen_width, screen_height, 0);
     if (win == NULL) {
         return EXIT_FAILURE;
@@ -107,6 +112,20 @@ int main() {
     loading_surf = IMG_Load("assets/brick2.png");
     SDL_Texture *brick_texture = SDL_CreateTextureFromSurface(renderer, loading_surf);
 
+    TTF_Font *font = TTF_OpenFont("assets/Hack-Regular.ttf", 24);
+    assert(font != NULL);
+
+    int glyph_width, glyph_height;
+    TTF_SizeText(font, "a", &glyph_width, &glyph_height);
+    SDL_Color text_color = {255, 255, 255, 255};
+    SDL_Texture *number_textures[10];
+    for (int i = 0; i < 10; i++) {
+        loading_surf = TTF_RenderGlyph_Blended(font, '0' + i, text_color);
+        number_textures[i] = SDL_CreateTextureFromSurface(renderer, loading_surf);
+    }
+
+init:;
+
     srand(time(NULL));
     float start_x = rand_range(128.0f, screen_width - 128.0f);
     float start_y = 128.0f;
@@ -134,7 +153,7 @@ int main() {
     float last_y = start_y;
     for (int i = 3; i < 255; i += 3) {
         float x = rand_range(0.0f, 1.0f) > 0.5f ? rand_range(last_x + 3.0f * brick_width, last_x + 6.0f * brick_width) : rand_range(last_x - 9.0f * brick_width, last_x - 6.0f * brick_width);
-        float y = last_y + rand_range(1.5f * player_height, 2.5f * player_height);
+        float y = last_y + rand_range(1.5f * player_height, 2.0f * player_height);
         last_x = x;
         last_y = y;
         bricks[i].x = last_x - brick_width / 2.0f;
@@ -182,6 +201,10 @@ int main() {
     brick_t *player_brick = NULL;
     brick_t *hit_brick = NULL;
 
+    bool game_over = false;
+
+    uint32_t score = 0;
+
     while (1) {
         SDL_Event e;
         if (SDL_PollEvent(&e)) {
@@ -205,6 +228,9 @@ int main() {
                 case SDLK_DOWN:
                 case SDLK_s:
                     down_pressed = true;
+                    break;
+                case SDLK_r:
+                    goto init;
                     break;
                 case SDLK_SPACE:
                     time_since_jump_press = 0;
@@ -236,6 +262,10 @@ int main() {
             }
         }
     after_handle_input:;
+
+        if (game_over) {
+            continue;
+        }
 
         uint32_t ticks = SDL_GetTicks();
         if (ticks - last_step_ticks < step_size) {
@@ -338,10 +368,17 @@ int main() {
                 ball.py = stored_ball_py;
                 ball_bouncing = false;
                 ball_bounce_time = 0;
+                // Break brick.
                 hit_brick->x = 0;
                 hit_brick->y = 0;
                 hit_brick = NULL;
+                score++;
             }
+        }
+
+        // Check if ball falls off the bottom of screen.
+        if (ball.py + ball_radius < camera_y) {
+            game_over = true;
         }
 
         // Check for collision between ball and player.
@@ -428,6 +465,9 @@ int main() {
         SDL_RenderClear(renderer);
         for (int i = 0; i < max_num_bricks; i++) {
             brick_t *brick = &bricks[i];
+            if (brick->x == 0 && brick->y == 0) {
+                continue;
+            }
             SDL_Rect dst_rect = {.x = (int)brick->x, .y = screen_height - (int)(brick->y + brick_height - camera_y), .w = (int)brick_width, .h = (int)brick_height};
             dst_rect.x = positive_fmod(dst_rect.x, screen_width);
             SDL_Rect wrap_rect = dst_rect;
@@ -472,6 +512,16 @@ int main() {
                 }
             }
         }
+        {
+            int digit = score;
+            int i = 0;
+            do {
+                SDL_Rect dst_rect = {screen_width - glyph_width * (i + 1), screen_height - glyph_height, glyph_width, glyph_height};
+                SDL_RenderCopy(renderer, number_textures[digit % 10], NULL, &dst_rect);
+                digit /= 10;
+                i++;
+            } while (digit > 0);
+        }
         SDL_RenderPresent(renderer);
     }
 
@@ -479,6 +529,8 @@ int main() {
     SDL_DestroyWindow(win);
 
     SDL_Quit();
+
+    TTF_Quit();
 
     return EXIT_FAILURE;
 }
