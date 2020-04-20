@@ -111,7 +111,7 @@ int main() {
     platform_t platforms[max_num_platforms];
     memset(platforms, 0, max_num_platforms * sizeof(platform_t));
     platforms[0].x = 400.0f;
-    platforms[0].y = 680.0f;
+    platforms[0].y = 100.0f;
     platforms[0].h = 16.0f;
     platforms[0].w = 128.0f;
 
@@ -227,7 +227,7 @@ int main() {
         // Step ball.
         last_ball_px = ball.px;
         last_ball_py = ball.py;
-        ball.vy += steps_per_second * gravity;
+        ball.vy -= steps_per_second * gravity;
         ball.px += steps_per_second * ball.vx;
         ball.py += steps_per_second * ball.vy;
 
@@ -259,7 +259,7 @@ int main() {
             // Jump is buffered.
             if (player_on_ground || air_time < coyote_time) {
                 // Player is able to jump.
-                player.vy = -player_max_jump_height * jump_velocity((float)jump_time / time_to_max_jump);
+                player.vy = player_max_jump_height * jump_velocity((float)jump_time / time_to_max_jump);
                 player_jumping = true;
             }
         }
@@ -272,13 +272,13 @@ int main() {
         if (jump_time > time_to_max_jump) {
             player_jumping = false;
         }
-        if (!player_jumping && player.vy < -100.0f) {
+        if (!player_jumping && player.vy > 100.0f) {
             player.vy *= 0.80f;
         } else {
             if (down_pressed) {
-                player.vy = fmin(player_terminal_velocity, player.vy + steps_per_second * fast_gravity);
+                player.vy = fmax(-player_terminal_velocity, player.vy - steps_per_second * fast_gravity);
             } else {
-                player.vy = fmin(player_terminal_velocity, player.vy + steps_per_second * gravity);
+                player.vy = fmax(-player_terminal_velocity, player.vy - steps_per_second * gravity);
             }
         }
         player.px += steps_per_second * player.vx;
@@ -286,13 +286,12 @@ int main() {
 
         // Squash ball.
         if (player_carrying_ball) {
+            ball.py = player.py + player_height + ball_radius;
             if (ball_carry_time < time_to_squash) {
                 ball.px = player.px + player_carry_offset;
-                ball.py = player.py - ball_radius;
                 ball_carry_time++;
             } else {
-                ball.py = player.py - ball_radius;
-                ball.vy = -ball_bounce_vy;
+                ball.vy = ball_bounce_vy;
                 if (left_pressed ^ right_pressed) {
                     ball.vx = left_pressed ? -ball_bounce_vx : ball_bounce_vx;
                 } else {
@@ -317,7 +316,7 @@ int main() {
         // Check for collision between ball and player.
         {
             bool collision = check_collision_circle_rect(ball.px, ball.py, ball_radius, player.px, player.py, player_width, player_height);
-            if (collision && last_ball_py < player.py && ball.vy > 0) {
+            if (collision && last_ball_py > player.py + player_height && ball.vy < 0) {
                 // Enter carry state.
                 player_carry_offset = ball.px - player.px;
                 player_carrying_ball = true;
@@ -330,9 +329,9 @@ int main() {
             platform_t *platform = &platforms[i];
             {
                 bool collision = check_collision_circle_rect(ball.px, ball.py, ball_radius, platform->x, platform->y, platform->w, platform->h);
-                if (collision && last_ball_py + ball_radius - 0.001f < platform->y && ball.vy > 0) {
-                    if (ball.vy < ball_no_bounce_velocity) {
-                        ball.py = platform->y - ball_radius;
+                if (collision && last_ball_py - ball_radius + 0.001f > platform->y + platform->h && ball.vy < 0) {
+                    ball.py = platform->y + platform->h + ball_radius;
+                    if (ball.vy > -ball_no_bounce_velocity) {
                         ball.vy = 0.0f;
                     } else {
                         ball_bouncing = true;
@@ -340,16 +339,15 @@ int main() {
                         stored_ball_vy = -ball_bounce_attenuation * ball.vy;
                         ball.vx = 0.0f;
                         ball.vy = 0.0f;
-                        ball.py = platform->y - ball_radius;
                         stored_ball_py = ball.py;
                     }
                 }
             }
             {
                 bool collision = check_collision_rect_rect(player.px, player.py, player_width, player_height, platform->x, platform->y, platform->w, platform->h);
-                if (collision && last_player_py + player_height - 0.001f < platform->y && player.vy > 0) {
+                if (collision && last_player_py + 0.001f > platform->y + platform->h && player.vy < 0) {
                     player_platform = platform;
-                    player.py = platform->y - player_height;
+                    player.py = platform->y + platform->h;
                     player.vy = 0.0f;
                     player_on_ground = true;
                     player_jumping = false;
@@ -381,7 +379,7 @@ int main() {
         SDL_RenderClear(renderer);
         for (int i = 0; i < max_num_platforms; i++) {
             platform_t *platform = &platforms[i];
-            SDL_Rect dst_rect = {.x = (int)platform->x, .y = (int)platform->y, .w = (int)platform->w, .h = (int)platform->h};
+            SDL_Rect dst_rect = {.x = (int)platform->x, .y = screen_height - (int)(platform->y + platform->h), .w = (int)platform->w, .h = (int)platform->h};
             if (platform == player_platform) {
                 SDL_RenderCopy(renderer, player_platform_texture, NULL, &dst_rect);
             } else {
@@ -389,7 +387,7 @@ int main() {
             }
         }
         {
-            SDL_Rect dst_rect = {.x = (int)(ball.px - ball_radius), .y = (int)(ball.py - ball_radius), .w = (int)(ball_radius * 2), .h = (int)(ball_radius * 2)};
+            SDL_Rect dst_rect = {.x = (int)(ball.px - ball_radius), .y = screen_height - (int)(ball.py + ball_radius), .w = (int)(ball_radius * 2), .h = (int)(ball_radius * 2)};
             if (player_carrying_ball) {
                 float pct = (float)ball_carry_time / (float)time_to_squash;
                 pct *= 2;
@@ -415,7 +413,7 @@ int main() {
             SDL_RenderCopy(renderer, ball_texture, NULL, &dst_rect);
         }
         {
-            SDL_Rect dst_rect = {.x = (int)player.px, .y = (int)player.py, .w = (int)player_width, .h = (int)player_height};
+            SDL_Rect dst_rect = {.x = (int)player.px, .y = screen_height - (int)(player.py + player_height), .w = (int)player_width, .h = (int)player_height};
             if (player_jumping) {
                 SDL_RenderCopy(renderer, player_jumping_texture, NULL, &dst_rect);
             } else {
