@@ -117,10 +117,19 @@ int main() {
 
     brick_t bricks[max_num_bricks];
     memset(bricks, 0, max_num_bricks * sizeof(brick_t));
-    bricks[0].x = start_x - 64.0f;
-    bricks[0].y = start_y + 64.0f;
-    bricks[1].x = start_x;
-    bricks[1].y = start_y + 64.0f;
+    bricks[0].x = start_x - brick_width / 2.0f;
+    bricks[0].y = start_y;
+    bricks[1].x = start_x - brick_width * 3.0f / 2.0f;
+    bricks[1].y = start_y;
+    bricks[2].x = start_x + brick_width / 2.0f;
+    bricks[2].y = start_y;
+
+    bricks[3].x = start_x - brick_width / 2.0f + 128.0f;
+    bricks[3].y = start_y + 128.0f;
+    bricks[4].x = start_x - brick_width * 3.0f / 2.0f + 128.0f;
+    bricks[4].y = start_y + 128.0f;
+    bricks[5].x = start_x + brick_width / 2.0f + 128.0f;
+    bricks[5].y = start_y + 128.0f;
 
     uint32_t last_step_ticks = 0;
     float last_ball_px = 0.0f;
