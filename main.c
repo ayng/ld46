@@ -43,6 +43,9 @@ const float time_to_pivot = 12.0f;         // steps
 const float time_to_squash = 12.0f;        // steps
 const float time_to_max_jump = 64.0f;      // steps
 
+const float camera_focus_bottom_margin = 128.0f;
+const float camera_move_factor = 0.04f;
+
 const uint32_t max_num_platforms = 32;
 
 typedef struct {
@@ -63,7 +66,6 @@ float decelerate(float);
 float pivot(float);
 
 float rand_range(float, float);
-uint32_t positive_modulo(uint32_t, uint32_t);
 float positive_fmod(float, float);
 
 int main() {
@@ -147,12 +149,16 @@ int main() {
     float stored_ball_vx = 0.0f;
     float stored_ball_vy = 0.0f;
     float stored_ball_py = 0.0f;
+
     uint32_t ball_carry_time = 0;
     uint32_t ball_bounce_time = 0;
     uint32_t air_time = 0;
     uint32_t jump_time = 0;
     uint32_t time_since_jump_press = max_time;
     uint32_t time_since_jump_release = max_time - 1;
+
+    float camera_y = 0.0f;
+    float camera_focus_y = platforms[0].y;
 
     platform_t *player_platform = NULL;
 
@@ -351,6 +357,7 @@ int main() {
                     check_collision_rect_rect(positive_fmod(player.px, (float)screen_width), player.py, player_width, player_height,
                                               positive_fmod(platform->x, (float)screen_width) - screen_width, platform->y, platform->w, platform->h);
                 if (collision && last_player_py + 0.001f > platform->y + platform->h && player.vy < 0) {
+                    camera_focus_y = platform->y;
                     player_platform = platform;
                     player.py = platform->y + platform->h;
                     player.vy = 0.0f;
@@ -361,6 +368,12 @@ int main() {
         }
         if (player_platform == NULL) {
             player_on_ground = false;
+        }
+
+        // Move camera.
+        float camera_target_y = camera_focus_y - camera_focus_bottom_margin;
+        if (fabs(camera_y - camera_target_y) > 0.001f) {
+            camera_y = (1.0f - camera_move_factor) * camera_y + camera_move_factor * camera_target_y;
         }
 
         // Increment counters.
@@ -384,8 +397,8 @@ int main() {
         SDL_RenderClear(renderer);
         for (int i = 0; i < max_num_platforms; i++) {
             platform_t *platform = &platforms[i];
-            SDL_Rect dst_rect = {.x = (int)platform->x, .y = screen_height - (int)(platform->y + platform->h), .w = (int)platform->w, .h = (int)platform->h};
-            dst_rect.x = positive_modulo(dst_rect.x, screen_width);
+            SDL_Rect dst_rect = {.x = (int)platform->x, .y = screen_height - (int)(platform->y + platform->h - camera_y), .w = (int)platform->w, .h = (int)platform->h};
+            dst_rect.x = positive_fmod(dst_rect.x, screen_width);
             SDL_Rect wrap_rect = dst_rect;
             wrap_rect.x -= screen_width;
             if (platform == player_platform) {
@@ -397,8 +410,8 @@ int main() {
             }
         }
         {
-            SDL_Rect dst_rect = {.x = (int)(ball.px - ball_radius), .y = screen_height - (int)(ball.py + ball_radius), .w = (int)(ball_radius * 2), .h = (int)(ball_radius * 2)};
-            dst_rect.x = positive_modulo(dst_rect.x, screen_width);
+            SDL_Rect dst_rect = {.x = (int)(ball.px - ball_radius), .y = screen_height - (int)(ball.py + ball_radius - camera_y), .w = (int)(ball_radius * 2), .h = (int)(ball_radius * 2)};
+            dst_rect.x = positive_fmod(dst_rect.x, screen_width);
             SDL_Rect wrap_rect = dst_rect;
             wrap_rect.x -= screen_width;
             if (player_carrying_ball) {
@@ -427,8 +440,8 @@ int main() {
             SDL_RenderCopy(renderer, ball_texture, NULL, &wrap_rect);
         }
         {
-            SDL_Rect dst_rect = {.x = (int)player.px, .y = screen_height - (int)(player.py + player_height), .w = (int)player_width, .h = (int)player_height};
-            dst_rect.x = positive_modulo(dst_rect.x, screen_width);
+            SDL_Rect dst_rect = {.x = (int)player.px, .y = screen_height - (int)(player.py + player_height - camera_y), .w = (int)player_width, .h = (int)player_height};
+            dst_rect.x = positive_fmod(dst_rect.x, screen_width);
             SDL_Rect wrap_rect = dst_rect;
             wrap_rect.x -= screen_width;
             if (player_jumping) {
@@ -550,14 +563,6 @@ float pivot(float velocity) {
 float rand_range(float min, float max) {
     float r = (float)rand() / (float)RAND_MAX;
     return min + r * (max - min);
-}
-
-uint32_t positive_modulo(uint32_t x, uint32_t mod) {
-    uint32_t xm = x % mod;
-    if (xm < 0) {
-        return xm + mod;
-    }
-    return xm;
 }
 
 float positive_fmod(float x, float mod) {
