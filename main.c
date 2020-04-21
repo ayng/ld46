@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include <sys/time.h>
 
-const char *window_title = "LD46";
+const char *window_title = "LD46 - Icy Mountain Hot Potato";
 const uint32_t screen_width = 1280;
 const uint32_t screen_height = 720;
 const uint32_t step_size = 8; // 8 milliseconds roughly equates to 120Hz
