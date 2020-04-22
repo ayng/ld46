@@ -288,13 +288,14 @@ void one_iter() {
         reset_pressed = keystates[SDL_SCANCODE_R];
     }
 
-    if (!jump_pressed && keystates[SDL_SCANCODE_SPACE]) {
-        jump_pressed = keystates[SDL_SCANCODE_SPACE];
+    bool jump_keystates = keystates[SDL_SCANCODE_SPACE] || keystates[SDL_SCANCODE_W];
+    if (!jump_pressed && jump_keystates) {
+        jump_pressed = jump_keystates;
         time_since_jump_press = 0;
     }
 
-    if (jump_pressed && !keystates[SDL_SCANCODE_SPACE]) {
-        jump_pressed = keystates[SDL_SCANCODE_SPACE];
+    if (jump_pressed && !jump_keystates) {
+        jump_pressed = jump_keystates;
         time_since_jump_release = 0;
     }
 
