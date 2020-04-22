@@ -622,7 +622,7 @@ int main() {
         return EXIT_FAILURE;
     }
 
-    renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
+    renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     if (renderer == NULL) {
         return EXIT_FAILURE;
     }
