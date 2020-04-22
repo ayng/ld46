@@ -425,7 +425,7 @@ void one_iter() {
             check_collision_circle_rect(positive_fmod(ball.px, (float)screen_width), ball.py, ball_radius,
                                         positive_fmod(player.px, (float)screen_width), player.py, player_width, player_height) ||
             check_collision_circle_rect(positive_fmod(ball.px, (float)screen_width), ball.py, ball_radius,
-                                        positive_fmod(player.px, (float)screen_width), player.py, player_width, player_height);
+                                        positive_fmod(player.px, (float)screen_width) - screen_width, player.py, player_width, player_height);
         if (collision && last_ball_py > player.py + player_height && ball.vy <= 0.0f) {
             // Enter carry state.
             player_carry_offset = ball.px - player.px;
