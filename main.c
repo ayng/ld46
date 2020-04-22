@@ -449,6 +449,9 @@ void one_iter() {
     player_brick = NULL;
     for (int i = 0; i < MAX_NUM_BRICKS; i++) {
         brick_t *brick = &bricks[i];
+        if (brick->x == 0 && brick->y == 0) {
+            continue;
+        }
         if (brick->y + brick_height < camera_y) {
             // Off-screen bricks don't have collision.
             continue;
