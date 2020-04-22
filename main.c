@@ -419,6 +419,8 @@ void one_iter() {
         bool collision =
             check_collision_circle_rect(positive_fmod(ball.px, (float)screen_width), ball.py, ball_radius,
                                         positive_fmod(player.px, (float)screen_width), player.py, player_width, player_height) ||
+            check_collision_circle_rect(positive_fmod(ball.px, (float)screen_width) - screen_width, ball.py, ball_radius,
+                                        positive_fmod(player.px, (float)screen_width), player.py, player_width, player_height) ||
             check_collision_circle_rect(positive_fmod(ball.px, (float)screen_width), ball.py, ball_radius,
                                         positive_fmod(player.px, (float)screen_width) - screen_width, player.py, player_width, player_height);
         if (collision && last_ball_py > player.py + player_height && ball.vy <= 0.0f) {
@@ -461,6 +463,8 @@ void one_iter() {
             bool collision =
                 check_collision_circle_rect(positive_fmod(ball.px, (float)screen_width), ball.py, ball_radius,
                                             positive_fmod(brick->x, (float)screen_width), brick->y, brick_width, brick_height) ||
+                check_collision_circle_rect(positive_fmod(ball.px, (float)screen_width) - screen_width, ball.py, ball_radius,
+                                            positive_fmod(brick->x, (float)screen_width), brick->y, brick_width, brick_height) ||
                 check_collision_circle_rect(positive_fmod(ball.px, (float)screen_width), ball.py, ball_radius,
                                             positive_fmod(brick->x, (float)screen_width) - screen_width, brick->y, brick_width, brick_height);
             if (collision && last_ball_py - ball_radius + 0.001f > brick->y + brick_height && ball.vy < 0) {
@@ -478,6 +482,8 @@ void one_iter() {
         {
             bool collision =
                 check_collision_rect_rect(positive_fmod(player.px, (float)screen_width), player.py, player_width, player_height,
+                                          positive_fmod(brick->x, (float)screen_width), brick->y, brick_width, brick_height) ||
+                check_collision_rect_rect(positive_fmod(player.px, (float)screen_width) - screen_width, player.py, player_width, player_height,
                                           positive_fmod(brick->x, (float)screen_width), brick->y, brick_width, brick_height) ||
                 check_collision_rect_rect(positive_fmod(player.px, (float)screen_width), player.py, player_width, player_height,
                                           positive_fmod(brick->x, (float)screen_width) - screen_width, brick->y, brick_width, brick_height);
