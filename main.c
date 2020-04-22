@@ -308,15 +308,6 @@ void one_iter() {
         return;
     }
 
-    // Step ball.
-    last_ball_px = ball.px;
-    last_ball_py = ball.py;
-    if (!ball_bouncing) {
-        ball.vy -= seconds_per_frame * gravity;
-    }
-    ball.px += seconds_per_frame * ball.vx;
-    ball.py += seconds_per_frame * ball.vy;
-
     // Step player.
     last_player_px = player.px;
     last_player_py = player.py;
@@ -360,10 +351,12 @@ void one_iter() {
     } else {
         player.vy -= seconds_per_frame * gravity;
     }
-
     player.px += seconds_per_frame * player.vx;
     player.py += seconds_per_frame * player.vy;
 
+    // Step ball.
+    last_ball_px = ball.px;
+    last_ball_py = ball.py;
     // Squash ball.
     if (player_carrying_ball) {
         ball.py = player.py + player_height + ball_radius;
@@ -395,8 +388,7 @@ void one_iter() {
             ball_carry_time = 0;
             Mix_PlayChannel(-1, sfx_bounce_end, 0);
         }
-    }
-    if (ball_bouncing) {
+    } else if (ball_bouncing) {
         if (ball_bounce_time < time_to_squash) {
             ball_bounce_time++;
         } else {
@@ -415,6 +407,10 @@ void one_iter() {
                 high_score = score;
             }
         }
+    } else {
+        ball.vy -= seconds_per_frame * gravity;
+        ball.px += seconds_per_frame * ball.vx;
+        ball.py += seconds_per_frame * ball.vy;
     }
 
     // Check if ball falls off the bottom of screen.
@@ -430,12 +426,27 @@ void one_iter() {
                                         positive_fmod(player.px, (float)screen_width), player.py, player_width, player_height) ||
             check_collision_circle_rect(positive_fmod(ball.px, (float)screen_width), ball.py, ball_radius,
                                         positive_fmod(player.px, (float)screen_width), player.py, player_width, player_height);
-        if (collision && last_ball_py > player.py + player_height && ball.vy < 0) {
+        if (collision && last_ball_py > player.py + player_height && ball.vy <= 0.0f) {
             // Enter carry state.
             player_carry_offset = ball.px - player.px;
             left_pressed_entering_carry_state = left_pressed;
             right_pressed_entering_carry_state = right_pressed;
             player_carrying_ball = true;
+            // Cancel bounce if needed.
+            if (ball_bouncing) {
+                ball_bouncing = false;
+                ball_bounce_time = 0;
+                // Break brick.
+                hit_brick->x = 0;
+                hit_brick->y = 0;
+                hit_brick = NULL;
+                Mix_PlayChannel(-1, sfx_brick_break, 0);
+                score++;
+                if (score > high_score) {
+                    high_score = score;
+                }
+            }
+
             Mix_PlayChannel(-1, sfx_bounce_start, 0);
         }
     }
@@ -448,7 +459,7 @@ void one_iter() {
             // Off-screen bricks don't have collision.
             continue;
         }
-        {
+        if (!player_carrying_ball) {
             bool collision =
                 check_collision_circle_rect(positive_fmod(ball.px, (float)screen_width), ball.py, ball_radius,
                                             positive_fmod(brick->x, (float)screen_width), brick->y, brick_width, brick_height) ||
