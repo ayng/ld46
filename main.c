@@ -145,13 +145,12 @@ bool should_quit = false;
 void init() {
     gettimeofday(&tv, NULL);
     srand((uint64_t)tv.tv_sec * 1000 + (uint64_t)tv.tv_usec / 1000);
-    float start_x = 600.0f;
+    float start_x = rand_range(128.0f, screen_width - 128.0f);
     float start_y = 128.0f;
 
     ball = (body_t){
         .px = start_x,
         .py = start_y + player_height * 6.0f,
-        .vy = 400.0f,
     };
 
     player = (body_t){
@@ -168,10 +167,6 @@ void init() {
     bricks[2].x = start_x + brick_width / 2.0f;
     bricks[2].y = start_y;
 
-    bricks[3].x = start_x - brick_width / 2.0f;
-    bricks[3].y = start_y + 4.0f * player_height;
-
-    /*
     float last_x = start_x;
     float last_y = start_y;
 
@@ -229,7 +224,6 @@ void init() {
         bricks[i + 2].x = last_x + brick_width / 2.0f;
         bricks[i + 2].y = last_y;
     }
-    */
 
     next_brick = 0;
 
