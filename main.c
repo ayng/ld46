@@ -18,7 +18,6 @@
 const char *window_title = "LD46 - Icy Mountain Hot Potato";
 const uint32_t screen_width = 1280;
 const uint32_t screen_height = 720;
-const float seconds_per_frame = 1.0f / 60.0f;
 
 const float ball_radius = 10.0f;   // pixels
 const float player_width = 32.0f;  // pixels
@@ -42,15 +41,17 @@ const float jump_release_attenuation = 0.9f;
 
 const float ball_no_bounce_velocity = 120.0f; // pixels/s
 
-const uint32_t coyote_time = 6;         // steps
-const uint32_t time_to_buffer_jump = 8; // steps
-const uint32_t max_time = 65535;        // steps
+// times are in seconds
+const float coyote_time = 0.1f;
+const float time_to_buffer_jump = 0.133333f;
+const float max_time = 10;
 
-const float time_to_max_velocity = 9.0f;  // steps
-const float time_to_zero_velocity = 9.0f; // steps
-const float time_to_pivot = 6.0f;         // steps
-const float time_to_squash = 8.0f;        // steps
-const float time_to_max_jump = 32.0f;     // steps
+// times are in seconds
+const float time_to_max_velocity = 0.15f;
+const float time_to_zero_velocity = 0.15f;
+const float time_to_pivot = 0.1f;
+const float time_to_squash = 0.133333f;
+const float time_to_max_jump = 0.533333f;
 
 const float camera_focus_bottom_margin = 128.0f;
 const float camera_move_factor = 0.04f;
@@ -71,16 +72,17 @@ typedef struct {
 bool check_collision_circle_rect(float, float, float, float, float, float, float);
 bool check_collision_rect_rect(float, float, float, float, float, float, float, float);
 
-float accelerate(float);
-float decelerate(float);
-float pivot(float);
+float accelerate(float, float);
+float decelerate(float, float);
+float pivot(float, float);
 
 float rand_range(float, float);
 float positive_fmod(float, float);
 
 int next_brick;
 
-uint32_t last_fps_update_time;
+uint32_t last_fps_update_time = 0; // milliseconds
+uint32_t last_update_time = 0;     // milliseconds
 float last_ball_px;
 float last_ball_py;
 float last_player_px;
@@ -105,12 +107,13 @@ float stored_ball_vx;
 float stored_ball_vy;
 float stored_ball_py;
 
-uint32_t ball_carry_time;
-uint32_t ball_bounce_time;
-uint32_t air_time;
-uint32_t jump_time;
-uint32_t time_since_jump_press;
-uint32_t time_since_jump_release;
+// times in seconds
+float ball_carry_time;
+float ball_bounce_time;
+float air_time;
+float jump_time;
+float time_since_jump_press;
+float time_since_jump_release;
 
 float camera_y;
 float camera_focus_y;
@@ -237,7 +240,6 @@ void init() {
 
     next_brick = 0;
 
-    last_fps_update_time = 0;
     last_ball_px = 0.0f;
     last_ball_py = 0.0f;
     last_player_px = 0.0f;
@@ -286,13 +288,15 @@ void one_iter() {
     }
 
     frames++;
-    uint32_t ticks = SDL_GetTicks();
-    uint32_t delta = ticks - last_fps_update_time;
-    if (delta > 200) {
-        fps = (float)frames / (float)delta * 1000.0f;
-        last_fps_update_time = ticks;
+    uint32_t now = SDL_GetTicks();
+    uint32_t fps_delta = now - last_fps_update_time;
+    if (fps_delta > 200) {
+        fps = (float)frames / (float)fps_delta * 1000.0f;
+        last_fps_update_time = now;
         frames = 0;
     }
+    float dt = (now - last_update_time) * 0.001f; // in seconds
+    last_update_time = now;
 
     const Uint8 *keystates = SDL_GetKeyboardState(NULL);
     left_pressed = keystates[SDL_SCANCODE_A] || keystates[SDL_SCANCODE_LEFT];
@@ -334,22 +338,22 @@ void one_iter() {
     if (left_pressed ^ right_pressed) {
         if (left_pressed) {
             if (player.vx > 0.0f) {
-                player.vx = pivot(player.vx);
+                player.vx = pivot(player.vx, dt);
             } else {
-                player.vx = -accelerate(-player.vx);
+                player.vx = -accelerate(-player.vx, dt);
             }
         } else {
             if (player.vx < 0.0f) {
-                player.vx = -pivot(-player.vx);
+                player.vx = -pivot(-player.vx, dt);
             } else {
-                player.vx = accelerate(player.vx);
+                player.vx = accelerate(player.vx, dt);
             }
         }
     } else {
         if (player.vx > 0.0f) {
-            player.vx = decelerate(player.vx);
+            player.vx = decelerate(player.vx, dt);
         } else {
-            player.vx = -decelerate(-player.vx);
+            player.vx = -decelerate(-player.vx, dt);
         }
     }
     // Initiate jump if possible.
@@ -367,12 +371,12 @@ void one_iter() {
         player_jumping = false;
     }
     if (!player_jumping && down_pressed) {
-        player.vy -= seconds_per_frame * fast_gravity;
+        player.vy -= dt * fast_gravity;
     } else {
-        player.vy -= seconds_per_frame * gravity;
+        player.vy -= dt * gravity;
     }
-    player.px += seconds_per_frame * player.vx;
-    player.py += seconds_per_frame * player.vy;
+    player.px += dt * player.vx;
+    player.py += dt * player.vy;
 
     // Step ball.
     last_ball_px = ball.px;
@@ -382,7 +386,7 @@ void one_iter() {
         ball.py = player.py + player_height + ball_radius;
         if (ball_carry_time < time_to_squash) {
             ball.px = player.px + player_carry_offset;
-            ball_carry_time++;
+            ball_carry_time += dt;
         } else {
             ball.vy = ball_bounce_vy;
             if (left_pressed ^ right_pressed) {
@@ -410,7 +414,7 @@ void one_iter() {
         }
     } else if (ball_bouncing) {
         if (ball_bounce_time < time_to_squash) {
-            ball_bounce_time++;
+            ball_bounce_time += dt;
         } else {
             ball.vx = stored_ball_vx;
             ball.vy = stored_ball_vy;
@@ -428,9 +432,9 @@ void one_iter() {
             }
         }
     } else {
-        ball.vy -= seconds_per_frame * gravity;
-        ball.px += seconds_per_frame * ball.vx;
-        ball.py += seconds_per_frame * ball.vy;
+        ball.vy -= dt * gravity;
+        ball.px += dt * ball.vx;
+        ball.py += dt * ball.vy;
     }
 
     // Check if ball falls off the bottom of screen.
@@ -534,19 +538,19 @@ void one_iter() {
 
     // Increment counters.
     if (!player_on_ground) {
-        air_time++;
+        air_time += dt;
         if (player_jumping) {
-            jump_time++;
+            jump_time += dt;
         }
     } else {
-        air_time = 0;
-        jump_time = 0;
+        air_time = 0.0f;
+        jump_time = 0.0f;
     }
     if (time_since_jump_press < max_time) {
-        time_since_jump_press++;
+        time_since_jump_press += dt;
     }
     if (time_since_jump_release < max_time - 1) {
-        time_since_jump_release++;
+        time_since_jump_release += dt;
     }
 
     // Render.
@@ -823,18 +827,18 @@ float identity(float x) {
 }
 
 // Return a value larger than or equal to velocity. Positive values only.
-float accelerate(float velocity) {
-    return fmin(player_max_velocity, player_max_velocity * square(sqrt(velocity / player_max_velocity) + 1.0f / time_to_max_velocity));
+float accelerate(float velocity, float dt) {
+    return fmin(player_max_velocity, player_max_velocity * square(sqrt(velocity / player_max_velocity) + dt / time_to_max_velocity));
 }
 
 // Return a value less than velocity that approaches zero. Positive values only.
-float decelerate(float velocity) {
-    return fmax(0.0f, velocity - player_max_velocity / time_to_zero_velocity);
+float decelerate(float velocity, float dt) {
+    return fmax(0.0f, velocity - player_max_velocity * dt / time_to_zero_velocity);
 }
 
 // Return a value less than velocity that approaches zero. Positive values only.
-float pivot(float velocity) {
-    return fmax(0.0f, velocity - player_max_velocity / time_to_pivot);
+float pivot(float velocity, float dt) {
+    return fmax(0.0f, velocity - player_max_velocity * dt / time_to_pivot);
 }
 
 float rand_range(float min, float max) {
