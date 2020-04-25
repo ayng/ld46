@@ -80,7 +80,7 @@ float positive_fmod(float, float);
 
 int next_brick;
 
-uint32_t last_step_ticks;
+uint32_t last_fps_update_time;
 float last_ball_px;
 float last_ball_py;
 float last_player_px;
@@ -89,6 +89,7 @@ float last_player_py;
 bool left_pressed;
 bool right_pressed;
 bool down_pressed;
+bool show_fps_pressed;
 bool reset_pressed;
 bool jump_pressed;
 bool player_on_ground;
@@ -148,6 +149,8 @@ bool should_quit = false;
 
 uint32_t frames = 0;
 uint32_t fps = 0;
+
+bool show_fps = false;
 
 void init() {
     gettimeofday(&tv, NULL);
@@ -234,7 +237,7 @@ void init() {
 
     next_brick = 0;
 
-    last_step_ticks = 0;
+    last_fps_update_time = 0;
     last_ball_px = 0.0f;
     last_ball_py = 0.0f;
     last_player_px = 0.0f;
@@ -243,6 +246,7 @@ void init() {
     left_pressed = false;
     right_pressed = false;
     down_pressed = false;
+    show_fps_pressed = false;
     player_on_ground = false;
     player_carrying_ball = false;
     player_jumping = false;
@@ -283,10 +287,10 @@ void one_iter() {
 
     frames++;
     uint32_t ticks = SDL_GetTicks();
-    uint32_t delta = ticks - last_step_ticks;
+    uint32_t delta = ticks - last_fps_update_time;
     if (delta > 200) {
         fps = (float)frames / (float)delta * 1000.0f;
-        last_step_ticks = ticks;
+        last_fps_update_time = ticks;
         frames = 0;
     }
 
@@ -299,9 +303,7 @@ void one_iter() {
         reset_pressed = keystates[SDL_SCANCODE_R];
         init();
         return;
-    }
-
-    if (reset_pressed && !keystates[SDL_SCANCODE_R]) {
+    } else if (reset_pressed && !keystates[SDL_SCANCODE_R]) {
         reset_pressed = keystates[SDL_SCANCODE_R];
     }
 
@@ -309,11 +311,17 @@ void one_iter() {
     if (!jump_pressed && jump_keystates) {
         jump_pressed = jump_keystates;
         time_since_jump_press = 0;
-    }
-
-    if (jump_pressed && !jump_keystates) {
+    } else if (jump_pressed && !jump_keystates) {
         jump_pressed = jump_keystates;
         time_since_jump_release = 0;
+    }
+
+    bool show_fps_keystates = keystates[SDL_SCANCODE_F];
+    if (!show_fps_pressed && show_fps_keystates) {
+        show_fps_pressed = true;
+        show_fps = !show_fps;
+    } else if (show_fps_pressed && !show_fps_keystates) {
+        show_fps_pressed = false;
     }
 
     if (game_over) {
@@ -612,7 +620,7 @@ void one_iter() {
             i++;
         } while (digit > 0);
     }
-    {
+    if (show_fps) {
         int digit = fps;
         int i = 0;
         do {
