@@ -19,6 +19,8 @@ const char *window_title = "LD46 - Icy Mountain Hot Potato";
 const uint32_t screen_width = 1280;
 const uint32_t screen_height = 720;
 
+const float max_dt = 1.0f / 60.0f;
+
 const float ball_radius = 10.0f;   // pixels
 const float player_width = 32.0f;  // pixels
 const float player_height = 32.0f; // pixels
@@ -295,7 +297,7 @@ void one_iter() {
         last_fps_update_time = now;
         frames = 0;
     }
-    float dt = (now - last_update_time) * 0.001f; // in seconds
+    float dt = fmin(max_dt, (now - last_update_time) * 0.001f); // in seconds
     last_update_time = now;
 
     const Uint8 *keystates = SDL_GetKeyboardState(NULL);
