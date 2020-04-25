@@ -1,3 +1,5 @@
+![Cover image](cover.png)
+
 # Building
 
 This codebase is compiled using CMake.
