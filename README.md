@@ -1,3 +1,7 @@
+# Icy Mountain Hot Potato
+
+This game was made in 72 hours for [Ludum Dare 46](https://ldjam.com/events/ludum-dare/46/working-title).
+
 ![Cover image](cover.png)
 
 # Building
