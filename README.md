@@ -6,6 +6,8 @@ This game was made in 72 hours for [Ludum Dare 46](https://ldjam.com/events/ludu
 
 # Building
 
-This codebase is compiled using CMake.
+To compile, you will need to have the following libraries installed on your
+system: `SDL2`, `SDL2_image`, `SDL2_mixer`, and `SDL2_ttf`. Compilation only
+tested on Linux so far.
 
-Dependencies are `SDL2`, `SDL2_image`, `SDL2_mixer`, and `SDL2_ttf`.
+To build, run `make`.

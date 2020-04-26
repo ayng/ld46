@@ -1,0 +1,8 @@
+#!/bin/sh
+
+# Change to the directory this script resides in.
+canonical_path=$(readlink -f "$0")
+cd "$(dirname "$canonical_path")"
+
+# Launch the game.
+exec ./bin/imhp
