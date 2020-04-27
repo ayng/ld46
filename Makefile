@@ -1,5 +1,5 @@
-RELEASE_NAME = imhp-0.4
 BINARY_NAME = imhp
+RELEASE_NAME = $(BINARY_NAME)-$(shell git describe --tags)
 
 SDL2_CFLAGS = $(shell sdl2-config --cflags)
 SDL2_LIBS = $(shell sdl2-config --libs)
@@ -13,8 +13,9 @@ $(RELEASE_NAME).tar.gz: $(BINARY_NAME)
 	rm -rf $@
 	tar --dereference \
 		--transform 's|^|$(RELEASE_NAME)/|' \
-		--transform 's|^usr/lib/|bin/lib/|' \
-		--transform 's|$(BINARY_NAME)|bin/$(BINARY_NAME)|' \
+		--transform 's|$(BINARY_NAME)$$|bin/$(BINARY_NAME)|' \
+		--transform 's|usr|bin|' \
+		--transform 's|pkg/||' \
 		-czf $(RELEASE_NAME).tar.gz \
 			$(wildcard assets/*.ttf) \
 			$(wildcard assets/*.png) \
@@ -24,7 +25,8 @@ $(RELEASE_NAME).tar.gz: $(BINARY_NAME)
 			/usr/lib/libSDL2_mixer-2.0.so.0 \
 			/usr/lib/libSDL2_ttf-2.0.so.0 \
 			$(BINARY_NAME) \
-			start
+			pkg/start \
+			pkg/README
 
 tar: $(RELEASE_NAME).tar.gz
 
@@ -41,7 +43,7 @@ web: index.html index.wasm index.data index.js
 
 clean:
 	rm -f $(BINARY_NAME)
-	rm -f $(RELEASE_NAME).tar.gz
+	rm -f $(BINARY_NAME)-*.tar.gz
 	rm -f index.html index.wasm index.js index.data
 
 .PHONY: clean tar web
