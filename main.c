@@ -5,7 +5,6 @@
 #include <SDL.h>
 #include <SDL_image.h>
 #include <SDL_mixer.h>
-#include <SDL_ttf.h>
 
 #include <assert.h>
 #include <math.h>
@@ -134,12 +133,11 @@ SDL_Renderer *renderer;
 SDL_Surface *loading_surf;
 SDL_Texture *ball_texture, *ball_squash_texture, *player_texture, *player_jump_texture, *player_fall_texture, *brick_texture;
 SDL_Texture *white_on_black_number_textures[10];
-SDL_Texture *white_number_textures[10];
-SDL_Texture *yellow_number_textures[10];
+SDL_Texture *white_numbers_texture;
+SDL_Texture *yellow_numbers_texture;
 SDL_Texture *game_over_text_texture;
 SDL_Texture *fps_text_texture;
 Mix_Chunk *sfx_jump, *sfx_game_over, *sfx_bounce_start, *sfx_bounce_end, *sfx_brick_break;
-TTF_Font *font;
 
 int glyph_width, glyph_height;
 int game_over_text_width, game_over_text_height;
@@ -604,8 +602,9 @@ void one_iter() {
         int digit = score;
         int i = 0;
         do {
+            SDL_Rect src_rect = {(digit % 10) * glyph_width, 0, glyph_width, glyph_height};
             SDL_Rect dst_rect = {screen_width - glyph_width * (i + 1), screen_height - 2.0f * glyph_height, glyph_width, glyph_height};
-            SDL_RenderCopy(renderer, white_number_textures[digit % 10], NULL, &dst_rect);
+            SDL_RenderCopy(renderer, white_numbers_texture, &src_rect, &dst_rect);
             digit /= 10;
             i++;
         } while (digit > 0);
@@ -614,8 +613,9 @@ void one_iter() {
         int digit = high_score;
         int i = 0;
         do {
+            SDL_Rect src_rect = {(digit % 10) * glyph_width, 0, glyph_width, glyph_height};
             SDL_Rect dst_rect = {screen_width - glyph_width * (i + 1), screen_height - glyph_height, glyph_width, glyph_height};
-            SDL_RenderCopy(renderer, yellow_number_textures[digit % 10], NULL, &dst_rect);
+            SDL_RenderCopy(renderer, yellow_numbers_texture, &src_rect, &dst_rect);
             digit /= 10;
             i++;
         } while (digit > 0);
@@ -624,8 +624,9 @@ void one_iter() {
         int digit = fps;
         int i = 0;
         do {
+            SDL_Rect src_rect = {(digit % 10) * glyph_width, 0, glyph_width, glyph_height};
             SDL_Rect dst_rect = {screen_width - glyph_width * (i + 1), 0, glyph_width, glyph_height};
-            SDL_RenderCopy(renderer, white_on_black_number_textures[digit % 10], NULL, &dst_rect);
+            SDL_RenderCopy(renderer, white_numbers_texture, &src_rect, &dst_rect);
             digit /= 10;
             i++;
         } while (digit > 0);
@@ -641,10 +642,6 @@ void one_iter() {
 
 int main() {
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) {
-        return EXIT_FAILURE;
-    }
-
-    if (TTF_Init()) {
         return EXIT_FAILURE;
     }
 
@@ -687,29 +684,25 @@ int main() {
     brick_texture = SDL_CreateTextureFromSurface(renderer, loading_surf);
     assert(brick_texture != NULL);
 
-    font = TTF_OpenFont("assets/Hack-Regular.ttf", 24);
-    assert(font != NULL);
+    loading_surf = IMG_Load("assets/white_numbers.png");
+    white_numbers_texture = SDL_CreateTextureFromSurface(renderer, loading_surf);
+    loading_surf = IMG_Load("assets/yellow_numbers.png");
+    yellow_numbers_texture = SDL_CreateTextureFromSurface(renderer, loading_surf);
 
-    TTF_SizeText(font, "a", &glyph_width, &glyph_height);
-    SDL_Color white = {255, 255, 255, 255};
-    SDL_Color yellow = {232, 234, 74, 255};
-    SDL_Color black = {0, 0, 0, 255};
-    for (int i = 0; i < 10; i++) {
-        loading_surf = TTF_RenderGlyph_Shaded(font, '0' + i, white, black);
-        white_on_black_number_textures[i] = SDL_CreateTextureFromSurface(renderer, loading_surf);
-        loading_surf = TTF_RenderGlyph_Blended(font, '0' + i, white);
-        white_number_textures[i] = SDL_CreateTextureFromSurface(renderer, loading_surf);
-        loading_surf = TTF_RenderGlyph_Blended(font, '0' + i, yellow);
-        yellow_number_textures[i] = SDL_CreateTextureFromSurface(renderer, loading_surf);
-    }
+    glyph_width = loading_surf->w / 10;
+    glyph_height = loading_surf->h;
 
-    TTF_SizeText(font, game_over_text, &game_over_text_width, &game_over_text_height);
-    loading_surf = TTF_RenderText_Shaded(font, game_over_text, white, black);
+    loading_surf = IMG_Load("assets/game_over_text.png");
     game_over_text_texture = SDL_CreateTextureFromSurface(renderer, loading_surf);
 
-    TTF_SizeText(font, fps_text, &fps_text_width, &fps_text_height);
-    loading_surf = TTF_RenderText_Shaded(font, fps_text, white, black);
+    game_over_text_width = loading_surf->w;
+    game_over_text_height = loading_surf->h;
+
+    loading_surf = IMG_Load("assets/fps_text.png");
     fps_text_texture = SDL_CreateTextureFromSurface(renderer, loading_surf);
+
+    fps_text_width = loading_surf->w;
+    fps_text_height = loading_surf->h;
 
     sfx_jump = Mix_LoadWAV("assets/jump.wav");
     assert(sfx_jump != NULL);
@@ -742,9 +735,6 @@ int main() {
     Mix_Quit();
 
     IMG_Quit();
-
-    TTF_CloseFont(font);
-    TTF_Quit();
 
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(win);
