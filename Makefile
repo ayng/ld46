@@ -6,10 +6,10 @@ SDL2_LIBS = $(shell sdl2-config --libs)
 
 CC ?= gcc
 
-$(BINARY_NAME): main.c Makefile
+$(BINARY_NAME): main.c
 	$(CC) -o $@ -lm $(SDL2_CFLAGS) $(SDL2_LIBS) -lSDL2_mixer -lSDL2_image -lSDL2_ttf $< -Wl,-rpath='$${ORIGIN}/lib'
 
-tar: $(BINARY_NAME)
+$(RELEASE_NAME).tar.gz: $(BINARY_NAME)
 	rm -rf $@
 	tar --dereference \
 		--transform 's|^|$(RELEASE_NAME)/|' \
@@ -26,7 +26,22 @@ tar: $(BINARY_NAME)
 			$(BINARY_NAME) \
 			start
 
-clean:
-	rm -f bin/imhp
+tar: $(RELEASE_NAME).tar.gz
 
-.PHONY: clean tar
+index.html index.wasm index.data index.js: main.c
+	emcc $< \
+		-s USE_SDL=2 \
+		-s USE_SDL_IMAGE=2 \
+		-s USE_SDL_MIXER=2 \
+		-s USE_SDL_TTF=2 \
+		-s SDL2_IMAGE_FORMATS='["png"]' \
+		-o index.html --preload-file assets --shell-file shell.html
+
+web: index.html index.wasm index.data index.js
+
+clean:
+	rm -f $(BINARY_NAME)
+	rm -f $(RELEASE_NAME).tar.gz
+	rm -f index.html index.wasm index.js index.data
+
+.PHONY: clean tar web
