@@ -41,9 +41,15 @@ index.html index.wasm index.data index.js: main.c
 
 web: index.html index.wasm index.data index.js
 
+$(RELEASE_NAME)-web.zip: index.html index.wasm index.data index.js
+	zip $@ $^
+
+webzip: $(RELEASE_NAME)-web.zip
+
 clean:
 	rm -f $(BINARY_NAME)
 	rm -f $(BINARY_NAME)-*.tar.gz
+	rm -f $(BINARY_NAME)-*-web.zip
 	rm -f index.html index.wasm index.js index.data
 
-.PHONY: clean tar web
+.PHONY: clean tar web webzip
