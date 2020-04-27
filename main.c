@@ -640,7 +640,11 @@ void one_iter() {
     SDL_RenderPresent(renderer);
 }
 
+#ifdef WIN32
+int WinMain() {
+#else
 int main() {
+#endif
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) {
         return EXIT_FAILURE;
     }
