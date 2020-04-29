@@ -89,6 +89,7 @@ bool left_pressed;
 bool right_pressed;
 bool down_pressed;
 bool show_fps_pressed;
+bool toggle_fullscreen_pressed;
 bool reset_pressed;
 bool jump_pressed;
 bool player_on_ground;
@@ -149,6 +150,7 @@ uint32_t frames = 0;
 uint32_t fps = 0;
 
 bool show_fps = false;
+bool fullscreen = false;
 
 void init() {
     gettimeofday(&tv, NULL);
@@ -245,6 +247,7 @@ void init() {
     right_pressed = false;
     down_pressed = false;
     show_fps_pressed = false;
+    toggle_fullscreen_pressed = false;
     player_on_ground = false;
     player_carrying_ball = false;
     player_jumping = false;
@@ -314,12 +317,25 @@ void one_iter() {
         time_since_jump_release = 0;
     }
 
-    bool show_fps_keystates = keystates[SDL_SCANCODE_F];
+    bool show_fps_keystates = keystates[SDL_SCANCODE_P];
     if (!show_fps_pressed && show_fps_keystates) {
         show_fps_pressed = true;
         show_fps = !show_fps;
     } else if (show_fps_pressed && !show_fps_keystates) {
         show_fps_pressed = false;
+    }
+
+    bool toggle_fullscreen_keystates = keystates[SDL_SCANCODE_F];
+    if (!toggle_fullscreen_pressed && toggle_fullscreen_keystates) {
+        toggle_fullscreen_pressed = true;
+        fullscreen = !fullscreen;
+        if (fullscreen) {
+            SDL_SetWindowFullscreen(win, SDL_WINDOW_FULLSCREEN_DESKTOP);
+        } else {
+            SDL_SetWindowFullscreen(win, 0);
+        }
+    } else if (toggle_fullscreen_pressed && !toggle_fullscreen_keystates) {
+        toggle_fullscreen_pressed = false;
     }
 
     if (game_over) {
@@ -655,7 +671,8 @@ int main() {
 
     Mix_Volume(-1, MIX_MAX_VOLUME / 4);
 
-    win = SDL_CreateWindow(window_title, 100, 100, screen_width, screen_height, 0);
+    win = SDL_CreateWindow(window_title, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, screen_width, screen_height, 0);
+
     if (win == NULL) {
         return EXIT_FAILURE;
     }
@@ -667,7 +684,7 @@ int main() {
 
     SDL_SetRenderDrawColor(renderer, 32, 32, 64, 255);
 
-    //SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
+    SDL_RenderSetLogicalSize(renderer, screen_width, screen_height);
 
     loading_surf = IMG_Load("assets/ball3.png");
     printf("%s\n", IMG_GetError());
