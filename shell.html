@@ -51,6 +51,7 @@
     </style>
   </head>
   <body>
+    <div id="invisible-focus-button" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:10;"></div>
     <figure style="overflow:visible;" id="spinner"><div class="spinner"></div><center style="margin-top:0.5em"><strong>emscripten</strong></center></figure>
     <div class="emscripten" id="status">Downloading...</div>
     <div class="emscripten">
@@ -135,6 +136,11 @@
           if (text) Module.printErr('[post-exception status] ' + text);
         };
       };
+      
+      var focusButton = document.getElementById("invisible-focus-button");
+      focusButton.onclick = function () {
+        console.log("focused!");
+      }
     </script>
     {{{ SCRIPT }}}
   </body>
